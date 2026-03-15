@@ -1,0 +1,42 @@
+# OS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+coverage/
+.turbo/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Prisma local artifacts
+**/prisma/dev.db
+**/prisma/dev.db-journal
+
+# TypeScript
+*.tsbuildinfo
+
+# Editor
+.idea/
+.vscode/
+
+# Misc
+tmp/
+.cache/
+
+# Helpful
+*.md
