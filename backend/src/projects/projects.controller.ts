@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtPayload } from '../auth/types';
 import { ProjectRoles } from '../common/decorators/project-roles.decorator';
 import { ProjectRoleGuard } from '../common/guards/project-role.guard';
+import { AddProjectMemberDto } from './dto/add-project-member.dto';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectsService } from './projects.service';
@@ -47,5 +48,12 @@ export class ProjectsController {
   @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR)
   update(@Param('id') id: string, @Body() dto: UpdateProjectDto) {
     return this.projectsService.update(id, dto);
+  }
+
+  @Post(':id/members')
+  @UseGuards(ProjectRoleGuard)
+  @ProjectRoles(ProjectRole.OWNER)
+  addMember(@Param('id') id: string, @Body() dto: AddProjectMemberDto) {
+    return this.projectsService.addMember(id, dto);
   }
 }
