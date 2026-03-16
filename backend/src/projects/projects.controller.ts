@@ -10,10 +10,10 @@ import {
 } from '@nestjs/common';
 import { ProjectRole } from '@prisma/client';
 import type { Request } from 'express';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtPayload } from '../auth/types';
 import { ProjectRoles } from '../common/decorators/project-roles.decorator';
 import { ProjectRoleGuard } from '../common/guards/project-role.guard';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectsService } from './projects.service';

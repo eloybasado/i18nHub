@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { GlobalRole } from '@prisma/client';
-import { ROLES_KEY } from '../decorators/roles.decorator';
 import { JwtPayload } from '../../auth/types';
+import { ROLES_KEY } from '../decorators/roles.decorator';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
