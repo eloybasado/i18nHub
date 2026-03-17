@@ -1,4 +1,11 @@
-import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ProjectRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProjectRoles } from '../common/decorators/project-roles.decorator';
@@ -16,7 +23,7 @@ export class TranslationFilesController {
   @Post('ingest')
   @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR)
   ingest(
-    @Param('projectId') projectId: string,
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
     @Body() dto: IngestTranslationFilesDto,
   ) {
     return this.translationFilesService.ingest(projectId, dto);

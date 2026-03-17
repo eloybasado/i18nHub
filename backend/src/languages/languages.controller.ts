@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   UseGuards,
@@ -23,7 +24,7 @@ export class LanguagesController {
   @Post()
   @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR)
   create(
-    @Param('projectId') projectId: string,
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
     @Body() dto: CreateLanguageDto,
   ) {
     return this.languagesService.create(projectId, dto);
@@ -31,14 +32,14 @@ export class LanguagesController {
 
   @Get()
   @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR, ProjectRole.VIEWER)
-  list(@Param('projectId') projectId: string) {
+  list(@Param('projectId', new ParseUUIDPipe()) projectId: string) {
     return this.languagesService.listByProject(projectId);
   }
 
   @Patch('reference')
   @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR)
   setReference(
-    @Param('projectId') projectId: string,
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
     @Body() dto: SetReferenceLanguageDto,
   ) {
     return this.languagesService.setReferenceLanguage(

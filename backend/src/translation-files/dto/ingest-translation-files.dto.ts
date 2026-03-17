@@ -1,10 +1,10 @@
 import { Type } from 'class-transformer';
 import {
-    ArrayMinSize,
-    IsArray,
-    IsDefined,
-    IsString,
-    ValidateNested,
+  ArrayMinSize,
+  IsArray,
+  IsDefined,
+  IsString,
+  ValidateNested,
 } from 'class-validator';
 
 class IngestFileItemDto {

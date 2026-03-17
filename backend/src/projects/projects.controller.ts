@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Req,
@@ -39,21 +40,27 @@ export class ProjectsController {
   @Get(':id')
   @UseGuards(ProjectRoleGuard)
   @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR, ProjectRole.VIEWER)
-  getById(@Param('id') id: string) {
+  getById(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.projectsService.getById(id);
   }
 
   @Patch(':id')
   @UseGuards(ProjectRoleGuard)
   @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR)
-  update(@Param('id') id: string, @Body() dto: UpdateProjectDto) {
+  update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateProjectDto,
+  ) {
     return this.projectsService.update(id, dto);
   }
 
   @Post(':id/members')
   @UseGuards(ProjectRoleGuard)
   @ProjectRoles(ProjectRole.OWNER)
-  addMember(@Param('id') id: string, @Body() dto: AddProjectMemberDto) {
+  addMember(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: AddProjectMemberDto,
+  ) {
     return this.projectsService.addMember(id, dto);
   }
 }
