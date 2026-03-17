@@ -19,6 +19,48 @@ type ParsedFile = {
 export class TranslationFilesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async listByProject(projectId: string) {
+    await this.ensureProjectExists(projectId);
+
+    return this.prisma.translationFile.findMany({
+      where: {
+        fileGroup: {
+          projectId,
+        },
+      },
+      select: {
+        id: true,
+        filename: true,
+        uploadedAt: true,
+        language: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        fileGroup: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: [
+        {
+          fileGroup: {
+            name: 'asc',
+          },
+        },
+        {
+          language: {
+            code: 'asc',
+          },
+        },
+      ],
+    });
+  }
+
   async ingest(projectId: string, dto: IngestTranslationFilesDto) {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
@@ -131,6 +173,30 @@ export class TranslationFilesService {
     };
   }
 
+  async remove(projectId: string, translationFileId: string) {
+    await this.ensureProjectExists(projectId);
+
+    const translationFile = await this.prisma.translationFile.findFirst({
+      where: {
+        id: translationFileId,
+        fileGroup: {
+          projectId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!translationFile) {
+      throw new NotFoundException('Translation file not found in project');
+    }
+
+    await this.prisma.translationFile.delete({
+      where: { id: translationFileId },
+    });
+
+    return { deleted: true };
+  }
+
   private parseByPattern(
     pattern: I18nPattern,
     rawPath: string,
@@ -231,5 +297,16 @@ export class TranslationFilesService {
 
   private isJsonValue(value: unknown): value is Prisma.InputJsonValue {
     return typeof value === 'object' && value !== null;
+  }
+
+  private async ensureProjectExists(projectId: string): Promise<void> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: { id: true },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
   }
 }

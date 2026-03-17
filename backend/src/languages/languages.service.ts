@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Language } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLanguageDto } from './dto/create-language.dto';
+import { UpdateLanguageDto } from './dto/update-language.dto';
 
 @Injectable()
 export class LanguagesService {
@@ -42,6 +43,62 @@ export class LanguagesService {
       where: { id: projectId },
       data: { referenceLanguageId: languageId },
     });
+  }
+
+  async update(projectId: string, languageId: string, dto: UpdateLanguageDto) {
+    await this.ensureProjectExists(projectId);
+
+    const language = await this.prisma.language.findFirst({
+      where: { id: languageId, projectId },
+      select: { id: true },
+    });
+
+    if (!language) {
+      throw new NotFoundException('Language not found in project');
+    }
+
+    return this.prisma.language.update({
+      where: { id: languageId },
+      data: {
+        code: dto.code?.toLowerCase(),
+        name: dto.name,
+      },
+    });
+  }
+
+  async remove(projectId: string, languageId: string) {
+    await this.ensureProjectExists(projectId);
+
+    const language = await this.prisma.language.findFirst({
+      where: { id: languageId, projectId },
+      select: { id: true },
+    });
+
+    if (!language) {
+      throw new NotFoundException('Language not found in project');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.project.updateMany({
+        where: {
+          id: projectId,
+          referenceLanguageId: languageId,
+        },
+        data: {
+          referenceLanguageId: null,
+        },
+      });
+
+      await tx.analysisReport.deleteMany({
+        where: { projectId },
+      });
+
+      await tx.language.delete({
+        where: { id: languageId },
+      });
+    });
+
+    return { deleted: true };
   }
 
   private async ensureProjectExists(projectId: string): Promise<void> {

@@ -1,6 +1,8 @@
 import {
   Body,
   Controller,
+  Delete,
+  Get,
   Param,
   ParseUUIDPipe,
   Post,
@@ -27,5 +29,20 @@ export class TranslationFilesController {
     @Body() dto: IngestTranslationFilesDto,
   ) {
     return this.translationFilesService.ingest(projectId, dto);
+  }
+
+  @Get()
+  @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR, ProjectRole.VIEWER)
+  list(@Param('projectId', new ParseUUIDPipe()) projectId: string) {
+    return this.translationFilesService.listByProject(projectId);
+  }
+
+  @Delete(':translationFileId')
+  @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR)
+  remove(
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
+    @Param('translationFileId', new ParseUUIDPipe()) translationFileId: string,
+  ) {
+    return this.translationFilesService.remove(projectId, translationFileId);
   }
 }

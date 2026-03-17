@@ -37,6 +37,21 @@ export type IngestResponse = {
   pattern: I18nPattern;
 };
 
+export type TranslationFileSummary = {
+  id: string;
+  filename: string;
+  uploadedAt: string;
+  language: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  fileGroup: {
+    id: string;
+    name: string;
+  };
+};
+
 export type IssueType = 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH';
 
 export type AnalysisIssue = {

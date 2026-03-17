@@ -1,9 +1,12 @@
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { AuthCard } from '../components/common/AuthCard';
 import { apiRequest } from '../lib/api';
 import { session } from '../lib/session';
+import { notify } from '../lib/toast';
 import type { AuthResponse } from '../lib/types';
 
 export function RegisterPage() {
@@ -26,34 +29,58 @@ export function RegisterPage() {
       });
 
       session.setAccessToken(result.accessToken);
+      notify.success('Cuenta creada correctamente');
       navigate('/projects');
     } catch {
-      setError('No se pudo crear la cuenta');
+      const message = 'No se pudo crear la cuenta';
+      setError(message);
+      notify.error(message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="auth-shell">
-      <section className="auth-card">
-        <h1>Crear cuenta</h1>
-        <p>Empieza a organizar tu flujo de traducciones.</p>
-
-        <form onSubmit={onSubmit}>
-          <label>
+    <main className="grid min-h-screen place-items-center px-4 py-8">
+      <AuthCard
+        title="Crear cuenta"
+        subtitle="Empieza a organizar tu flujo de traducciones."
+        footer={
+          <>
+            Ya tienes cuenta?{' '}
+            <Link to="/login" className="font-semibold text-zinc-900 hover:underline">
+              Iniciar sesion
+            </Link>
+          </>
+        }
+      >
+        <form onSubmit={onSubmit} className="space-y-4">
+          <label className="block text-sm text-zinc-700">
             Nombre
-            <input type="text" value={name} onChange={(event) => setName(event.target.value)} required />
+            <Input
+              className="mt-1"
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              required
+            />
           </label>
 
-          <label>
+          <label className="block text-sm text-zinc-700">
             Correo
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+            <Input
+              className="mt-1"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
           </label>
 
-          <label>
+          <label className="block text-sm text-zinc-700">
             Contrasena
-            <input
+            <Input
+              className="mt-1"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -62,17 +89,15 @@ export function RegisterPage() {
             />
           </label>
 
-          {error ? <p className="error">{error}</p> : null}
+          {error ? (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+          ) : null}
 
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? 'Creando cuenta...' : 'Crear cuenta'}
           </Button>
         </form>
-
-        <p className="auth-footer">
-          Ya tienes cuenta? <Link to="/login">Iniciar sesion</Link>
-        </p>
-      </section>
+      </AuthCard>
     </main>
   );
 }

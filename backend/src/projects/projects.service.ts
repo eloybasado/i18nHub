@@ -100,4 +100,14 @@ export class ProjectsService {
       },
     });
   }
+
+  async remove(id: string) {
+    await this.getById(id);
+
+    await this.prisma.project.delete({
+      where: { id },
+    });
+
+    return { deleted: true };
+  }
 }

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -62,5 +63,12 @@ export class ProjectsController {
     @Body() dto: AddProjectMemberDto,
   ) {
     return this.projectsService.addMember(id, dto);
+  }
+
+  @Delete(':id')
+  @UseGuards(ProjectRoleGuard)
+  @ProjectRoles(ProjectRole.OWNER)
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.projectsService.remove(id);
   }
 }

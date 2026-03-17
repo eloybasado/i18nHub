@@ -3,7 +3,7 @@ import { session } from './session';
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
 type RequestOptions = {
-  method?: 'GET' | 'POST' | 'PATCH';
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
   auth?: boolean;
 };

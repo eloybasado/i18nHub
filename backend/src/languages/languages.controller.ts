@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -14,6 +15,7 @@ import { ProjectRoles } from '../common/decorators/project-roles.decorator';
 import { ProjectRoleGuard } from '../common/guards/project-role.guard';
 import { CreateLanguageDto } from './dto/create-language.dto';
 import { SetReferenceLanguageDto } from './dto/set-reference-language.dto';
+import { UpdateLanguageDto } from './dto/update-language.dto';
 import { LanguagesService } from './languages.service';
 
 @Controller('projects/:projectId/languages')
@@ -46,5 +48,24 @@ export class LanguagesController {
       projectId,
       dto.languageId,
     );
+  }
+
+  @Patch(':languageId')
+  @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR)
+  update(
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
+    @Param('languageId', new ParseUUIDPipe()) languageId: string,
+    @Body() dto: UpdateLanguageDto,
+  ) {
+    return this.languagesService.update(projectId, languageId, dto);
+  }
+
+  @Delete(':languageId')
+  @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR)
+  remove(
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
+    @Param('languageId', new ParseUUIDPipe()) languageId: string,
+  ) {
+    return this.languagesService.remove(projectId, languageId);
   }
 }
