@@ -1,80 +1,73 @@
-export type I18nPattern =
-  | 'SINGLE_FILE'
-  | 'FOLDER_PER_LOCALE'
-  | 'SUFFIX'
-  | 'PREFIX'
+export type I18nPattern = 'SINGLE_FILE' | 'FOLDER_PER_LOCALE' | 'SUFFIX' | 'PREFIX';
 
 export type AuthUser = {
-  id: string
-  email: string
-  name: string
-  role: 'ADMIN' | 'MEMBER'
-  tier: 'FREE' | 'PRO'
-}
+  id: string;
+  email: string;
+  name: string;
+  role: 'ADMIN' | 'MEMBER';
+  tier: 'FREE' | 'PRO';
+};
 
 export type AuthResponse = {
-  accessToken: string
-  refreshToken: string
-  user: AuthUser
-}
+  accessToken: string;
+  refreshToken: string;
+  user: AuthUser;
+};
 
 export type Project = {
-  id: string
-  name: string
-  description?: string | null
-  i18nPattern: I18nPattern
-  ownerId: string
-  referenceLanguageId?: string | null
-  createdAt: string
-}
+  id: string;
+  name: string;
+  description?: string | null;
+  i18nPattern: I18nPattern;
+  ownerId: string;
+  referenceLanguageId?: string | null;
+  createdAt: string;
+};
 
 export type Language = {
-  id: string
-  projectId: string
-  code: string
-  name: string
-}
+  id: string;
+  projectId: string;
+  code: string;
+  name: string;
+};
 
 export type IngestResponse = {
-  filesIngested: number
-  fileGroupsAffected: number
-  pattern: I18nPattern
-}
+  filesIngested: number;
+  fileGroupsAffected: number;
+  pattern: I18nPattern;
+};
 
-export type IssueType =
-  | 'MISSING_KEY'
-  | 'UNUSED_KEY'
-  | 'INTERPOLATION_MISMATCH'
+export type IssueType = 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH';
 
 export type AnalysisIssue = {
-  id: string
-  reportId: string
-  type: IssueType
-  key: string
-  languageId: string
-  referenceLanguageId: string
-  details?: Record<string, unknown> | null
-}
+  id: string;
+  reportId: string;
+  type: IssueType;
+  key: string;
+  languageId: string;
+  referenceLanguageId: string;
+  details?: Record<string, unknown> | null;
+};
 
 export type AnalysisReport = {
-  id: string
-  projectId: string
-  fileGroupId?: string | null
-  createdAt: string
+  id: string;
+  projectId: string;
+  fileGroupId?: string | null;
+  createdAt: string;
   fileGroup?: {
-    id: string
-    name: string
-  } | null
-  issues: AnalysisIssue[]
-}
+    id: string;
+    name: string;
+  } | null;
+  issues: AnalysisIssue[];
+};
 
 export type RunAnalysisResponse = {
-  reportsCreated: number
-  issuesCreated: number
+  reportsCreated: number;
+  issuesCreated: number;
   reports: Array<{
-    id: string
-    fileGroupId: string
-    fileGroupName: string
-    issuesCreated: number
-  }>
-}
+    id: string;
+    fileGroupId: string;
+    fileGroupName: string;
+    issuesCreated: number;
+  }>;
+};

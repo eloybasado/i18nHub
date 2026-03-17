@@ -1,18 +1,18 @@
 import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  UseGuards,
+    Body,
+    Controller,
+    Get,
+    Param,
+    ParseUUIDPipe,
+    Post,
+    UseGuards,
 } from '@nestjs/common';
 import { ProjectRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProjectRoles } from '../common/decorators/project-roles.decorator';
 import { ProjectRoleGuard } from '../common/guards/project-role.guard';
-import { RunAnalysisDto } from './dto/run-analysis.dto';
 import { AnalysisService } from './analysis.service';
+import { RunAnalysisDto } from './dto/run-analysis.dto';
 
 @Controller('projects/:projectId/analysis')
 @UseGuards(JwtAuthGuard, ProjectRoleGuard)

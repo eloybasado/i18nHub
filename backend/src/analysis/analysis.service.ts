@@ -1,12 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { IssueType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { RunAnalysisDto } from './dto/run-analysis.dto';
 import {
-  extractInterpolationVars,
-  flattenJsonToMap,
-  hasInterpolationMismatch,
+    extractInterpolationVars,
+    flattenJsonToMap,
+    hasInterpolationMismatch,
 } from './analysis.utils';
+import { RunAnalysisDto } from './dto/run-analysis.dto';
 
 type PendingIssue = {
   type: IssueType;

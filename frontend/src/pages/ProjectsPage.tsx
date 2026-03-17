@@ -1,50 +1,45 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { FolderPlus, FolderTree } from 'lucide-react'
-import { apiRequest } from '../lib/api'
-import type { FormEvent } from 'react'
-import type { I18nPattern, Project } from '../lib/types'
-import { PageHeader } from '../components/PageHeader'
+import { FolderPlus, FolderTree } from 'lucide-react';
+import type { FormEvent } from 'react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { PageHeader } from '../components/PageHeader';
+import { apiRequest } from '../lib/api';
+import type { I18nPattern, Project } from '../lib/types';
 
-const PATTERNS: I18nPattern[] = [
-  'SINGLE_FILE',
-  'FOLDER_PER_LOCALE',
-  'SUFFIX',
-  'PREFIX',
-]
+const PATTERNS: I18nPattern[] = ['SINGLE_FILE', 'FOLDER_PER_LOCALE', 'SUFFIX', 'PREFIX'];
 
 const PATTERN_LABELS: Record<I18nPattern, string> = {
   SINGLE_FILE: 'Archivo unico por idioma',
   FOLDER_PER_LOCALE: 'Carpeta por idioma',
   SUFFIX: 'Sufijo (home_es.json)',
   PREFIX: 'Prefijo (es_home.json)',
-}
+};
 
 export function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([])
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [i18nPattern, setI18nPattern] = useState<I18nPattern>('SINGLE_FILE')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [i18nPattern, setI18nPattern] = useState<I18nPattern>('SINGLE_FILE');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const loadProjects = async () => {
     try {
-      const data = await apiRequest<Project[]>('/projects', { auth: true })
-      setProjects(data)
+      const data = await apiRequest<Project[]>('/projects', { auth: true });
+      setProjects(data);
     } catch {
-      setError('No se pudieron cargar los proyectos')
+      setError('No se pudieron cargar los proyectos');
     }
-  }
+  };
 
   useEffect(() => {
-    loadProjects()
-  }, [])
+    loadProjects();
+  }, []);
 
   const onCreate = async (event: FormEvent) => {
-    event.preventDefault()
-    setError('')
-    setLoading(true)
+    event.preventDefault();
+    setError('');
+    setLoading(true);
 
     try {
       await apiRequest<Project>('/projects', {
@@ -55,48 +50,37 @@ export function ProjectsPage() {
           description: description || undefined,
           i18nPattern,
         },
-      })
+      });
 
-      setName('')
-      setDescription('')
-      setI18nPattern('SINGLE_FILE')
-      await loadProjects()
+      setName('');
+      setDescription('');
+      setI18nPattern('SINGLE_FILE');
+      await loadProjects();
     } catch {
-      setError('No se pudo crear el proyecto')
+      setError('No se pudo crear el proyecto');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <main className='app-shell'>
-      <PageHeader
-        title='Proyectos'
-        subtitle='Crea un proyecto y organiza tus archivos de traduccion.'
-      />
+    <main className="app-shell">
+      <PageHeader title="Proyectos" subtitle="Crea un proyecto y organiza tus archivos de traduccion." />
 
-      <section className='panel'>
+      <section className="panel">
         <h2>
           <FolderPlus size={16} />
           Nuevo proyecto
         </h2>
-        <form className='grid-form' onSubmit={onCreate}>
+        <form className="grid-form" onSubmit={onCreate}>
           <label>
             Nombre
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              minLength={2}
-              required
-            />
+            <input value={name} onChange={(event) => setName(event.target.value)} minLength={2} required />
           </label>
 
           <label>
             Patron
-            <select
-              value={i18nPattern}
-              onChange={(event) => setI18nPattern(event.target.value as I18nPattern)}
-            >
+            <select value={i18nPattern} onChange={(event) => setI18nPattern(event.target.value as I18nPattern)}>
               {PATTERNS.map((pattern) => (
                 <option key={pattern} value={pattern}>
                   {PATTERN_LABELS[pattern]}
@@ -105,33 +89,33 @@ export function ProjectsPage() {
             </select>
           </label>
 
-          <label className='full'>
+          <label className="full">
             Descripcion
             <input
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder='Opcional'
+              placeholder="Opcional"
             />
           </label>
 
-          <button type='submit' disabled={loading}>
+          <button type="submit" disabled={loading}>
             {loading ? 'Creando...' : 'Crear proyecto'}
           </button>
         </form>
       </section>
 
-      <section className='panel'>
+      <section className="panel">
         <h2>
           <FolderTree size={16} />
           Tus proyectos
         </h2>
 
-        {error ? <p className='error'>{error}</p> : null}
+        {error ? <p className="error">{error}</p> : null}
 
         {projects.length === 0 ? (
-          <p className='muted'>Todavia no hay proyectos.</p>
+          <p className="muted">Todavia no hay proyectos.</p>
         ) : (
-          <ul className='project-list'>
+          <ul className="project-list">
             {projects.map((project) => (
               <li key={project.id}>
                 <div>
@@ -145,5 +129,5 @@ export function ProjectsPage() {
         )}
       </section>
     </main>
-  )
+  );
 }

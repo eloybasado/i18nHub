@@ -1,22 +1,22 @@
-import { session } from './session'
+import { session } from './session';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
 type RequestOptions = {
-  method?: 'GET' | 'POST' | 'PATCH'
-  body?: unknown
-  auth?: boolean
-}
+  method?: 'GET' | 'POST' | 'PATCH';
+  body?: unknown;
+  auth?: boolean;
+};
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-  }
+  };
 
   if (options.auth) {
-    const token = session.getAccessToken()
+    const token = session.getAccessToken();
     if (token) {
-      headers.Authorization = `Bearer ${token}`
+      headers.Authorization = `Bearer ${token}`;
     }
   }
 
@@ -24,15 +24,15 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}) 
     method: options.method ?? 'GET',
     headers,
     body: options.body ? JSON.stringify(options.body) : undefined,
-  })
+  });
 
-  const text = await response.text()
-  const data = text ? JSON.parse(text) : null
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
-    const message = data?.message ?? `Request failed (${response.status})`
-    throw new Error(Array.isArray(message) ? message.join(', ') : message)
+    const message = data?.message ?? `Request failed (${response.status})`;
+    throw new Error(Array.isArray(message) ? message.join(', ') : message);
   }
 
-  return data as T
+  return data as T;
 }

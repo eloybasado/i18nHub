@@ -1,7 +1,7 @@
 import {
-  extractInterpolationVars,
-  flattenJsonToMap,
-  hasInterpolationMismatch,
+    extractInterpolationVars,
+    flattenJsonToMap,
+    hasInterpolationMismatch,
 } from './analysis.utils';
 
 describe('analysis.utils', () => {
