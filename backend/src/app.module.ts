@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { LanguagesModule } from './languages/languages.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProjectsModule } from './projects/projects.module';
+import { TranslationFilesModule } from './translation-files/translation-files.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ProjectsModule } from './projects/projects.module';
     AuthModule,
     ProjectsModule,
     LanguagesModule,
+    TranslationFilesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
