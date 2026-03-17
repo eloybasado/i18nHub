@@ -38,5 +38,5 @@ coverage/
 tmp/
 .cache/
 
-# Helpful
-*.md
+# anotation files
+/*.md
