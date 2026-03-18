@@ -1,10 +1,14 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { IssueType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-    extractInterpolationVars,
-    flattenJsonToMap,
-    hasInterpolationMismatch,
+  extractInterpolationVars,
+  flattenJsonToMap,
+  hasInterpolationMismatch,
 } from './analysis.utils';
 import { RunAnalysisDto } from './dto/run-analysis.dto';
 
@@ -47,7 +51,9 @@ export class AnalysisService {
     }
 
     if (!project.referenceLanguageId) {
-      throw new BadRequestException('Project has no reference language configured');
+      throw new BadRequestException(
+        'Project has no reference language configured',
+      );
     }
 
     if (dto.fileGroupId && project.fileGroups.length === 0) {
@@ -64,7 +70,9 @@ export class AnalysisService {
     );
 
     if (targetLanguages.length === 0) {
-      throw new BadRequestException('Project needs at least one non-reference language');
+      throw new BadRequestException(
+        'Project needs at least one non-reference language',
+      );
     }
 
     const reports = await this.prisma.$transaction(async (tx) => {
@@ -120,7 +128,10 @@ export class AnalysisService {
 
     return {
       reportsCreated: reports.length,
-      issuesCreated: reports.reduce((acc, report) => acc + report.issuesCreated, 0),
+      issuesCreated: reports.reduce(
+        (acc, report) => acc + report.issuesCreated,
+        0,
+      ),
       reports,
     };
   }
@@ -171,7 +182,9 @@ export class AnalysisService {
       },
     });
 
-    const fileByLanguageId = new Map(files.map((file) => [file.languageId, file]));
+    const fileByLanguageId = new Map(
+      files.map((file) => [file.languageId, file]),
+    );
     const referenceFile = fileByLanguageId.get(params.referenceLanguageId);
 
     if (!referenceFile) {
@@ -186,7 +199,9 @@ export class AnalysisService {
 
     for (const targetLanguageId of params.targetLanguageIds) {
       const targetFile = fileByLanguageId.get(targetLanguageId);
-      const targetMap = targetFile ? flattenJsonToMap(targetFile.content) : new Map();
+      const targetMap = targetFile
+        ? flattenJsonToMap(targetFile.content)
+        : new Map();
       const targetKeys = new Set(targetMap.keys());
 
       for (const key of referenceKeys) {

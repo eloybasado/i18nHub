@@ -13,7 +13,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { ChangeEvent, DragEvent, FormEvent, ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
@@ -80,26 +80,46 @@ const extractStringEntries = (value: unknown, prefix = '', acc: VisualEntry[] = 
 };
 
 const setStringByPath = (target: unknown, path: string, value: string): void => {
+  type JsonContainer = Record<string, unknown> | unknown[];
+
   const segments = path.split('.');
-  let cursor: any = target;
+  let cursor = target as JsonContainer;
 
   for (let index = 0; index < segments.length; index += 1) {
     const segment = segments[index];
     const isLast = index === segments.length - 1;
     const nextSegment = segments[index + 1];
     const nextIsArrayIndex = nextSegment !== undefined && /^\d+$/.test(nextSegment);
-    const key: string | number = Array.isArray(cursor) ? Number(segment) : segment;
+    const cursorIsArray = Array.isArray(cursor);
+    const arrayKey = Number(segment);
+    const objectKey = segment;
 
-    if (isLast) {
-      cursor[key] = value;
+    if (isLast && cursorIsArray) {
+      (cursor as unknown[])[arrayKey] = value;
       return;
     }
 
-    if (cursor[key] === undefined || cursor[key] === null) {
-      cursor[key] = nextIsArrayIndex ? [] : {};
+    if (isLast && !cursorIsArray) {
+      (cursor as Record<string, unknown>)[objectKey] = value;
+      return;
     }
 
-    cursor = cursor[key];
+    const nextValue = cursorIsArray ? (cursor as unknown[])[arrayKey] : (cursor as Record<string, unknown>)[objectKey];
+
+    if (nextValue === undefined || nextValue === null || typeof nextValue !== 'object') {
+      const initialized = nextIsArrayIndex ? [] : {};
+
+      if (cursorIsArray) {
+        (cursor as unknown[])[arrayKey] = initialized;
+      } else {
+        (cursor as Record<string, unknown>)[objectKey] = initialized;
+      }
+
+      cursor = initialized as JsonContainer;
+      continue;
+    }
+
+    cursor = nextValue as JsonContainer;
   }
 };
 
@@ -197,7 +217,7 @@ export function ProjectDetailPage() {
     }
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!projectId) return;
 
     try {
@@ -212,11 +232,11 @@ export function ProjectDetailPage() {
     } catch {
       setError('No se pudo cargar el proyecto');
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
-    load();
-  }, [projectId]);
+    void load();
+  }, [load]);
 
   const onAddLanguage = async (event: FormEvent) => {
     event.preventDefault();

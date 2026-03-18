@@ -1,6 +1,6 @@
 import { FolderKanban, Languages, LogOut, Menu, UserRound, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { session } from '../lib/session';
 import { Button } from './ui/button';
 
@@ -11,12 +11,7 @@ type Props = {
 
 export function PageHeader({ title, subtitle }: Props) {
   const navigate = useNavigate();
-  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [location.pathname]);
 
   const handleLogout = () => {
     session.clear();
@@ -97,6 +92,7 @@ export function PageHeader({ title, subtitle }: Props) {
             <nav className="grid gap-1">
               <NavLink
                 to="/projects"
+                onClick={() => setMenuOpen(false)}
                 className={({ isActive }) =>
                   `inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                     isActive ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
@@ -109,6 +105,7 @@ export function PageHeader({ title, subtitle }: Props) {
 
               <NavLink
                 to="/profile"
+                onClick={() => setMenuOpen(false)}
                 className={({ isActive }) =>
                   `inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                     isActive ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'

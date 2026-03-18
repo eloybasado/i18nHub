@@ -1,11 +1,11 @@
 import {
-    Body,
-    Controller,
-    Get,
-    Param,
-    ParseUUIDPipe,
-    Post,
-    UseGuards,
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
 } from '@nestjs/common';
 import { ProjectRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';

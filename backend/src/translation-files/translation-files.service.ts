@@ -305,7 +305,9 @@ export class TranslationFilesService {
     });
 
     if (!source) {
-      throw new NotFoundException('Source translation file not found in project');
+      throw new NotFoundException(
+        'Source translation file not found in project',
+      );
     }
 
     if (source.languageId === dto.targetLanguageId) {

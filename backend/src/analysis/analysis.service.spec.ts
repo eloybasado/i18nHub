@@ -77,9 +77,11 @@ describe('AnalysisService', () => {
     expect(result.issuesCreated).toBe(3);
     expect(analysisIssueCreateMany).toHaveBeenCalledTimes(1);
 
-    const payload = (analysisIssueCreateMany as jest.Mock).mock.calls[0][0].data;
+    const payload = analysisIssueCreateMany.mock.calls[0][0].data;
     expect(payload).toHaveLength(3);
-    expect(payload.map((issue: { type: IssueType }) => issue.type).sort()).toEqual(
+    expect(
+      payload.map((issue: { type: IssueType }) => issue.type).sort(),
+    ).toEqual(
       [
         IssueType.INTERPOLATION_MISMATCH,
         IssueType.MISSING_KEY,
@@ -128,8 +130,12 @@ describe('AnalysisService', () => {
     const result = await service.run('project-1', {});
 
     expect(result.issuesCreated).toBe(2);
-    const payload = (analysisIssueCreateMany as jest.Mock).mock.calls[0][0].data;
-    expect(payload.every((issue: { type: IssueType }) => issue.type === IssueType.MISSING_KEY)).toBe(true);
+    const payload = analysisIssueCreateMany.mock.calls[0][0].data;
+    expect(
+      payload.every(
+        (issue: { type: IssueType }) => issue.type === IssueType.MISSING_KEY,
+      ),
+    ).toBe(true);
   });
 
   it('throws when reference file is missing in a file group', async () => {
