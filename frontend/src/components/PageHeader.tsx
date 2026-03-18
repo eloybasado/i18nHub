@@ -1,5 +1,6 @@
-import { Languages, LogOut } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { FolderKanban, Languages, LogOut, Menu, UserRound, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { session } from '../lib/session';
 import { Button } from './ui/button';
 
@@ -10,6 +11,12 @@ type Props = {
 
 export function PageHeader({ title, subtitle }: Props) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     session.clear();
@@ -17,21 +24,113 @@ export function PageHeader({ title, subtitle }: Props) {
   };
 
   return (
-    <header className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 pb-3">
-      <div className="inline-flex items-center gap-2 text-sm font-extrabold tracking-tight text-zinc-950">
-        <Languages size={18} className="text-zinc-800" />
-        <Link to="/projects">i18nHub</Link>
-      </div>
+    <header className="relative left-1/2 right-1/2 -mt-6 mb-5 w-screen -translate-x-1/2 border-b border-zinc-200/90 bg-white/90 shadow-[0_6px_18px_rgba(0,0,0,0.04)] backdrop-blur">
+      <div className="mx-auto w-full max-w-7xl px-4 md:px-6">
+        <div className="sr-only" aria-live="polite">
+          {title}
+          {subtitle ? ` - ${subtitle}` : ''}
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+          <Link
+            to="/projects"
+            className="group inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1 transition-colors hover:bg-zinc-100"
+          >
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-zinc-900 text-white">
+              <Languages size={13} />
+            </span>
+            <span className="text-sm font-extrabold tracking-tight text-zinc-950">i18nHub</span>
+          </Link>
 
-      <div className="min-w-[220px] flex-1">
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-950">{title}</h1>
-        {subtitle ? <p className="mt-1 text-sm text-zinc-600">{subtitle}</p> : null}
-      </div>
+          <nav className="hidden items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 sm:flex">
+            <NavLink
+              to="/projects"
+              className={({ isActive }) =>
+                `inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors ${
+                  isActive ? 'bg-zinc-900 text-white shadow-sm' : 'text-zinc-600 hover:bg-white/70 hover:text-zinc-900'
+                }`
+              }
+            >
+              <FolderKanban size={14} />
+              Proyectos
+            </NavLink>
 
-      <Button type="button" variant="outline" onClick={handleLogout}>
-        <LogOut size={16} />
-        Cerrar sesion
-      </Button>
+            <NavLink
+              to="/profile"
+              className={({ isActive }) =>
+                `inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors ${
+                  isActive ? 'bg-zinc-900 text-white shadow-sm' : 'text-zinc-600 hover:bg-white/70 hover:text-zinc-900'
+                }`
+              }
+            >
+              <UserRound size={14} />
+              Mi perfil
+            </NavLink>
+          </nav>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="hidden border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 sm:inline-flex"
+            onClick={handleLogout}
+          >
+            <LogOut size={16} />
+            Cerrar sesion
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 sm:hidden"
+            onClick={() => setMenuOpen((prev) => !prev)}
+            aria-expanded={menuOpen}
+            aria-controls="app-header-menu"
+          >
+            {menuOpen ? <X size={16} /> : <Menu size={16} />}
+            Menu
+          </Button>
+        </div>
+
+        {menuOpen ? (
+          <div id="app-header-menu" className="border-t border-zinc-200/80 py-2 sm:hidden">
+            <nav className="grid gap-1">
+              <NavLink
+                to="/projects"
+                className={({ isActive }) =>
+                  `inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    isActive ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
+                  }`
+                }
+              >
+                <FolderKanban size={14} />
+                Proyectos
+              </NavLink>
+
+              <NavLink
+                to="/profile"
+                className={({ isActive }) =>
+                  `inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    isActive ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
+                  }`
+                }
+              >
+                <UserRound size={14} />
+                Mi perfil
+              </NavLink>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-red-800 transition-colors hover:bg-red-50"
+              >
+                <LogOut size={14} />
+                Cerrar sesion
+              </button>
+            </nav>
+          </div>
+        ) : null}
+      </div>
     </header>
   );
 }

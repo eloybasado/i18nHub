@@ -5,7 +5,9 @@ import {
 } from '@nestjs/common';
 import { I18nPattern, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { CloneTranslationFileDto } from './dto/clone-translation-file.dto';
 import { IngestTranslationFilesDto } from './dto/ingest-translation-files.dto';
+import { UpdateTranslationFileContentDto } from './dto/update-translation-file-content.dto';
 
 type ParsedFile = {
   path: string;
@@ -18,6 +20,44 @@ type ParsedFile = {
 @Injectable()
 export class TranslationFilesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async getById(projectId: string, translationFileId: string) {
+    await this.ensureProjectExists(projectId);
+
+    const translationFile = await this.prisma.translationFile.findFirst({
+      where: {
+        id: translationFileId,
+        fileGroup: {
+          projectId,
+        },
+      },
+      select: {
+        id: true,
+        filename: true,
+        content: true,
+        uploadedAt: true,
+        language: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        fileGroup: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!translationFile) {
+      throw new NotFoundException('Translation file not found in project');
+    }
+
+    return translationFile;
+  }
 
   async listByProject(projectId: string) {
     await this.ensureProjectExists(projectId);
@@ -197,6 +237,136 @@ export class TranslationFilesService {
     return { deleted: true };
   }
 
+  async updateContent(
+    projectId: string,
+    translationFileId: string,
+    dto: UpdateTranslationFileContentDto,
+  ) {
+    await this.ensureProjectExists(projectId);
+
+    const translationFile = await this.prisma.translationFile.findFirst({
+      where: {
+        id: translationFileId,
+        fileGroup: {
+          projectId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!translationFile) {
+      throw new NotFoundException('Translation file not found in project');
+    }
+
+    return this.prisma.translationFile.update({
+      where: { id: translationFileId },
+      data: {
+        content: dto.content as Prisma.InputJsonValue,
+      },
+      select: {
+        id: true,
+        filename: true,
+        content: true,
+        uploadedAt: true,
+        language: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        fileGroup: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
+  async cloneToLanguage(projectId: string, dto: CloneTranslationFileDto) {
+    await this.ensureProjectExists(projectId);
+
+    const source = await this.prisma.translationFile.findFirst({
+      where: {
+        id: dto.sourceTranslationFileId,
+        fileGroup: {
+          projectId,
+        },
+      },
+      select: {
+        id: true,
+        filename: true,
+        languageId: true,
+        fileGroupId: true,
+        content: true,
+      },
+    });
+
+    if (!source) {
+      throw new NotFoundException('Source translation file not found in project');
+    }
+
+    if (source.languageId === dto.targetLanguageId) {
+      throw new BadRequestException('Target language must be different');
+    }
+
+    const targetLanguage = await this.prisma.language.findFirst({
+      where: {
+        id: dto.targetLanguageId,
+        projectId,
+      },
+      select: { id: true },
+    });
+
+    if (!targetLanguage) {
+      throw new NotFoundException('Target language not found in project');
+    }
+
+    const clonedContent = this.toInputJson(
+      dto.clearValues ? this.clearStringValues(source.content) : source.content,
+    );
+
+    const result = await this.prisma.translationFile.upsert({
+      where: {
+        languageId_fileGroupId: {
+          languageId: dto.targetLanguageId,
+          fileGroupId: source.fileGroupId,
+        },
+      },
+      create: {
+        languageId: dto.targetLanguageId,
+        fileGroupId: source.fileGroupId,
+        filename: source.filename,
+        content: clonedContent,
+      },
+      update: {
+        content: clonedContent,
+      },
+      select: {
+        id: true,
+        filename: true,
+        uploadedAt: true,
+        language: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        fileGroup: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return result;
+  }
+
   private parseByPattern(
     pattern: I18nPattern,
     rawPath: string,
@@ -297,6 +467,37 @@ export class TranslationFilesService {
 
   private isJsonValue(value: unknown): value is Prisma.InputJsonValue {
     return typeof value === 'object' && value !== null;
+  }
+
+  private clearStringValues(value: Prisma.JsonValue): Prisma.JsonValue {
+    if (typeof value === 'string') {
+      return '';
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((item) => this.clearStringValues(item));
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, nestedValue]) => [
+          key,
+          this.clearStringValues(nestedValue as Prisma.JsonValue),
+        ]),
+      );
+    }
+
+    return value;
+  }
+
+  private toInputJson(
+    value: Prisma.JsonValue,
+  ): Prisma.InputJsonValue | Prisma.JsonNullValueInput {
+    if (value === null) {
+      return Prisma.JsonNull;
+    }
+
+    return value as Prisma.InputJsonValue;
   }
 
   private async ensureProjectExists(projectId: string): Promise<void> {

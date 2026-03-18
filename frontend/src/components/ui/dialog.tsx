@@ -3,6 +3,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import type { ComponentPropsWithoutRef, ElementRef } from 'react';
 import { forwardRef } from 'react';
+import { MODAL_CONTENT_CLASS, MODAL_FOOTER_CLASS, MODAL_HEADER_CLASS, MODAL_OVERLAY_CLASS } from './modal-styles';
 
 const Dialog = DialogPrimitive.Root;
 
@@ -16,14 +17,7 @@ const DialogOverlay = forwardRef<
   ElementRef<typeof DialogPrimitive.Overlay>,
   ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Overlay
-    ref={ref}
-    className={cn(
-      'fixed inset-0 z-50 bg-black/70 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-      className,
-    )}
-    {...props}
-  />
+  <DialogPrimitive.Overlay ref={ref} className={cn(MODAL_OVERLAY_CLASS, className)} {...props} />
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
@@ -33,14 +27,7 @@ const DialogContent = forwardRef<
 >(({ className, children, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        'fixed left-1/2 top-1/2 z-50 grid w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-zinc-200 bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
-        className,
-      )}
-      {...props}
-    >
+    <DialogPrimitive.Content ref={ref} className={cn(`grid gap-4 ${MODAL_CONTENT_CLASS}`, className)} {...props}>
       {children}
       <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-80 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:pointer-events-none">
         <X className="h-4 w-4" />
@@ -52,12 +39,12 @@ const DialogContent = forwardRef<
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({ className, ...props }: ComponentPropsWithoutRef<'div'>) => (
-  <div className={cn('flex flex-col gap-2 text-left', className)} {...props} />
+  <div className={cn(MODAL_HEADER_CLASS, className)} {...props} />
 );
 DialogHeader.displayName = 'DialogHeader';
 
 const DialogFooter = ({ className, ...props }: ComponentPropsWithoutRef<'div'>) => (
-  <div className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', className)} {...props} />
+  <div className={cn(MODAL_FOOTER_CLASS, className)} {...props} />
 );
 DialogFooter.displayName = 'DialogFooter';
 

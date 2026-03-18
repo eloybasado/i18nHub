@@ -115,7 +115,7 @@ export function ProjectsPage() {
     <main className="mx-auto w-full max-w-6xl px-4 py-6 md:px-6">
       <PageHeader title="Proyectos" subtitle="Crea un proyecto y organiza tus archivos de traduccion." />
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm md:p-6">
+      <section className="py-1">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
           <FolderPlus size={16} className="text-zinc-700" />
           Nuevo proyecto
@@ -164,7 +164,7 @@ export function ProjectsPage() {
         </form>
       </section>
 
-      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm md:p-6">
+      <section className="mt-6 border-t border-zinc-200 pt-6">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
           <FolderTree size={16} className="text-zinc-700" />
           Tus proyectos

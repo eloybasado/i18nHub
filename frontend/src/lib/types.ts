@@ -14,6 +14,15 @@ export type AuthResponse = {
   user: AuthUser;
 };
 
+export type AccountProfile = {
+  id: string;
+  email: string;
+  name: string;
+  role: 'ADMIN' | 'MEMBER';
+  tier: 'FREE' | 'PRO';
+  createdAt: string;
+};
+
 export type Project = {
   id: string;
   name: string;
@@ -50,6 +59,10 @@ export type TranslationFileSummary = {
     id: string;
     name: string;
   };
+};
+
+export type TranslationFileDetail = TranslationFileSummary & {
+  content: Record<string, unknown>;
 };
 
 export type IssueType = 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH';

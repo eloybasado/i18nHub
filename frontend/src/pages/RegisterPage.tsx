@@ -28,7 +28,7 @@ export function RegisterPage() {
         body: { name, email, password },
       });
 
-      session.setAccessToken(result.accessToken);
+      session.setTokens(result.accessToken, result.refreshToken);
       notify.success('Cuenta creada correctamente');
       navigate('/projects');
     } catch {

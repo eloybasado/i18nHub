@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -14,6 +15,7 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/projects" replace />} />

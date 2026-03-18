@@ -27,7 +27,7 @@ export function LoginPage() {
         body: { email, password },
       });
 
-      session.setAccessToken(result.accessToken);
+      session.setTokens(result.accessToken, result.refreshToken);
       notify.success('Sesion iniciada');
       navigate('/projects');
     } catch {

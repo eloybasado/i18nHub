@@ -2,6 +2,7 @@ import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
 import type { ComponentPropsWithoutRef, ElementRef } from 'react';
 import { forwardRef } from 'react';
 import { cn } from '../../lib/utils';
+import { MODAL_CONTENT_CLASS, MODAL_FOOTER_CLASS, MODAL_HEADER_CLASS, MODAL_OVERLAY_CLASS } from './modal-styles';
 
 const AlertDialog = AlertDialogPrimitive.Root;
 
@@ -13,7 +14,7 @@ const AlertDialogOverlay = forwardRef<
   ElementRef<typeof AlertDialogPrimitive.Overlay>,
   ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Overlay ref={ref} className={cn('fixed inset-0 z-50 bg-zinc-950/70', className)} {...props} />
+  <AlertDialogPrimitive.Overlay ref={ref} className={cn(MODAL_OVERLAY_CLASS, className)} {...props} />
 ));
 AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 
@@ -23,25 +24,18 @@ const AlertDialogContent = forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPortal>
     <AlertDialogOverlay />
-    <AlertDialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        'fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-zinc-200 bg-white p-5 shadow-xl',
-        className,
-      )}
-      {...props}
-    />
+    <AlertDialogPrimitive.Content ref={ref} className={cn(MODAL_CONTENT_CLASS, className)} {...props} />
   </AlertDialogPortal>
 ));
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName;
 
 const AlertDialogHeader = ({ className, ...props }: ComponentPropsWithoutRef<'div'>) => (
-  <div className={cn('flex flex-col gap-2 text-left', className)} {...props} />
+  <div className={cn(MODAL_HEADER_CLASS, className)} {...props} />
 );
 AlertDialogHeader.displayName = 'AlertDialogHeader';
 
 const AlertDialogFooter = ({ className, ...props }: ComponentPropsWithoutRef<'div'>) => (
-  <div className={cn('mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', className)} {...props} />
+  <div className={cn(MODAL_FOOTER_CLASS, className)} {...props} />
 );
 AlertDialogFooter.displayName = 'AlertDialogFooter';
 

@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { AuthResponse, JwtPayload } from './types';
 
 const SALT_ROUNDS = 10;
@@ -91,6 +92,56 @@ export class AuthService {
     }
 
     return this.issueTokensAndPersistRefresh(user);
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        tier: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return user;
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: dto.name,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        tier: true,
+        createdAt: true,
+      },
+    });
+
+    return updatedUser;
+  }
+
+  async logoutAll(userId: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        refreshTokenHash: null,
+      },
+    });
+
+    return { ok: true };
   }
 
   private async issueTokensAndPersistRefresh(
