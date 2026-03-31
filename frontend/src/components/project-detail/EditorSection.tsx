@@ -1,4 +1,5 @@
-import { Archive, CircleHelp, Download, FilePenLine } from 'lucide-react';
+import { Archive, CircleHelp, Download, FilePenLine, Maximize2, Minimize2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import type { Language, TranslationFileSummary } from '../../lib/types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -19,6 +20,10 @@ type EditorSectionProps = {
   editorBusy: boolean;
   editorJson: string;
   editorVisualQuery: string;
+  highlightedVisualPath?: string | null;
+  highlightedRawLine?: number | null;
+  onDismissHighlightedVisualPath: () => void;
+  onDismissHighlightedRawLine: () => void;
   filteredVisualEntries: EditorVisualEntry[];
   editorTargetLanguageId: string;
   editorTargetLanguageOptions: Language[];
@@ -48,6 +53,10 @@ export function EditorSection({
   editorBusy,
   editorJson,
   editorVisualQuery,
+  highlightedVisualPath,
+  highlightedRawLine,
+  onDismissHighlightedVisualPath,
+  onDismissHighlightedRawLine,
   filteredVisualEntries,
   editorTargetLanguageId,
   editorTargetLanguageOptions,
@@ -68,6 +77,37 @@ export function EditorSection({
   onCloneEmptyStructure,
   onRequestCopyContent,
 }: EditorSectionProps) {
+  const rawEditorRef = useRef<HTMLTextAreaElement | null>(null);
+  const [rawExpanded, setRawExpanded] = useState(false);
+  const visualHighlightFocusedPathRef = useRef<string | null>(null);
+  const rawHighlightInteractedRef = useRef(false);
+
+  useEffect(() => {
+    if (!highlightedVisualPath) {
+      return;
+    }
+
+    const element = document.getElementById(`visual-entry-${highlightedVisualPath}`);
+    if (element) {
+      element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }, [highlightedVisualPath, filteredVisualEntries.length]);
+
+  useEffect(() => {
+    if (!highlightedRawLine || !rawEditorRef.current) {
+      return;
+    }
+
+    const textarea = rawEditorRef.current;
+    const lines = editorJson.split('\n');
+    const lineIndex = Math.max(0, Math.min(highlightedRawLine - 1, lines.length - 1));
+    const charStart = lines.slice(0, lineIndex).reduce((sum, line) => sum + line.length + 1, 0);
+    const charEnd = charStart + (lines[lineIndex]?.length ?? 0);
+
+    textarea.focus();
+    textarea.setSelectionRange(charStart, charEnd);
+  }, [highlightedRawLine, editorJson]);
+
   return (
     <div className="mt-2">
       <h2 className="flex items-center gap-2 text-base font-semibold text-zinc-900">
@@ -189,13 +229,42 @@ export function EditorSection({
       </div>
 
       {editorMode === 'RAW' ? (
-        <textarea
-          className="mt-3 min-h-[320px] w-full rounded-lg border border-zinc-300 bg-white p-3 font-mono text-sm text-zinc-900 outline-none focus:border-zinc-500"
-          value={editorJson}
-          onChange={(event) => onEditorJsonChange(event.target.value)}
-          placeholder="Abre un archivo para empezar a editar su JSON..."
-          disabled={!editorFileId}
-        />
+        <div className={rawExpanded ? 'fixed inset-x-4 bottom-6 top-24 z-50' : 'mt-3'}>
+          <div className="mb-2 flex items-center justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setRawExpanded((previous) => !previous)}
+              disabled={!editorFileId}
+            >
+              {rawExpanded ? <Minimize2 size={14} className="mr-1" /> : <Maximize2 size={14} className="mr-1" />}
+              {rawExpanded ? 'Salir de ampliado' : 'Modo ampliado'}
+            </Button>
+          </div>
+
+          <textarea
+            ref={rawEditorRef}
+            className={`w-full rounded-lg border bg-white p-3 font-mono text-sm text-zinc-900 outline-none focus:border-zinc-500 ${
+              rawExpanded ? 'h-[calc(100%-2.5rem)]' : 'min-h-[320px]'
+            } ${highlightedRawLine ? 'border-sky-400 ring-1 ring-sky-300' : 'border-zinc-300'}`}
+            value={editorJson}
+            onChange={(event) => onEditorJsonChange(event.target.value)}
+            onFocus={() => {
+              if (highlightedRawLine) {
+                rawHighlightInteractedRef.current = true;
+              }
+            }}
+            onBlur={() => {
+              if (rawHighlightInteractedRef.current) {
+                rawHighlightInteractedRef.current = false;
+                onDismissHighlightedRawLine();
+              }
+            }}
+            placeholder="Abre un archivo para empezar a editar su JSON..."
+            disabled={!editorFileId}
+          />
+        </div>
       ) : (
         <div className="mt-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -221,7 +290,13 @@ export function EditorSection({
             ) : (
               <div className="space-y-4">
                 {filteredVisualEntries.map((entry) => (
-                  <label key={entry.path} className="block border-b border-zinc-200 pb-4">
+                  <label
+                    key={entry.path}
+                    id={`visual-entry-${entry.path}`}
+                    className={`block rounded-md border-b border-zinc-200 pb-4 ${
+                      highlightedVisualPath === entry.path ? 'border-l-4 border-l-sky-500 bg-sky-50/60 px-2' : ''
+                    }`}
+                  >
                     <span className="inline-flex rounded bg-zinc-100 px-2 py-1 font-mono text-sm font-semibold text-zinc-800">
                       {entry.path}
                     </span>
@@ -229,6 +304,17 @@ export function EditorSection({
                       className="mt-2 min-h-[110px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base leading-relaxed text-zinc-900 outline-none focus:border-zinc-500"
                       value={entry.value}
                       onChange={(event) => onEditorVisualEntryChange(entry.path, event.target.value)}
+                      onFocus={() => {
+                        if (highlightedVisualPath === entry.path) {
+                          visualHighlightFocusedPathRef.current = entry.path;
+                        }
+                      }}
+                      onBlur={() => {
+                        if (visualHighlightFocusedPathRef.current === entry.path) {
+                          visualHighlightFocusedPathRef.current = null;
+                          onDismissHighlightedVisualPath();
+                        }
+                      }}
                       disabled={!editorFileId}
                     />
                   </label>

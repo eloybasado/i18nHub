@@ -1,8 +1,8 @@
 import JSZip from 'jszip';
-import { FilePenLine, FileSearch, FileUp, Languages, Star } from 'lucide-react';
+import { ArrowLeft, FilePenLine, FileSearch, FileUp, Languages, Star } from 'lucide-react';
 import type { ChangeEvent, DragEvent, FormEvent, ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { AnalysisSection } from '../components/project-detail/AnalysisSection';
 import { EditorSection } from '../components/project-detail/EditorSection';
@@ -145,6 +145,7 @@ const sectionIconById: Record<SectionId, ReactNode> = {
 };
 
 export function ProjectDetailPage() {
+  const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [languages, setLanguages] = useState<Language[]>([]);
@@ -174,6 +175,10 @@ export function ProjectDetailPage() {
   const [editorBusy, setEditorBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [expandedIssueId, setExpandedIssueId] = useState<string | null>(null);
+  const [highlightedIssuePath, setHighlightedIssuePath] = useState<string | null>(null);
+  const [highlightedRawLine, setHighlightedRawLine] = useState<number | null>(null);
+  const [reportGroupByReportId, setReportGroupByReportId] = useState<Record<string, string>>({});
+  const [reportGroupNameByReportId, setReportGroupNameByReportId] = useState<Record<string, string>>({});
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
   const [loading, setLoading] = useState(false);
@@ -434,11 +439,54 @@ export function ProjectDetailPage() {
       setEditorCloneMode('EMPTY_STRUCTURE');
       setCloneConfirmOpen(false);
       notify.success(`Archivo abierto en editor: ${file.filename}`);
+      return file;
     } catch {
       notify.error('No se pudo cargar el archivo en el editor');
+      return null;
     } finally {
       setEditorBusy(false);
     }
+  };
+
+  const findBestMatchingPath = (targetKey: string, paths: string[]): string | null => {
+    if (paths.length === 0) {
+      return null;
+    }
+
+    const normalizedTarget = targetKey.trim().toLowerCase();
+
+    const exact = paths.find((path) => path.toLowerCase() === normalizedTarget);
+    if (exact) {
+      return exact;
+    }
+
+    const startsWith = paths.find((path) => path.toLowerCase().startsWith(`${normalizedTarget}.`));
+    if (startsWith) {
+      return startsWith;
+    }
+
+    const contains = paths.find((path) => path.toLowerCase().includes(normalizedTarget));
+    if (contains) {
+      return contains;
+    }
+
+    return null;
+  };
+
+  const findJsonLineForPath = (jsonText: string, path: string): number | null => {
+    const segments = path.split('.').filter(Boolean);
+    if (segments.length === 0) {
+      return null;
+    }
+
+    const keyToken = `"${segments[segments.length - 1]}"`;
+    const lines = jsonText.split('\n');
+    const foundIndex = lines.findIndex((line) => line.includes(keyToken));
+    if (foundIndex < 0) {
+      return null;
+    }
+
+    return foundIndex + 1;
   };
 
   const saveEditorFile = async () => {
@@ -650,6 +698,23 @@ export function ProjectDetailPage() {
         ),
       );
 
+      setReportGroupByReportId(
+        Object.fromEntries(
+          reports
+            .filter((report) => Boolean(report.fileGroup?.id))
+            .map((report) => [report.id, report.fileGroup?.id as string]),
+        ),
+      );
+
+      setReportGroupNameByReportId(
+        Object.fromEntries(
+          result.reports.map((report) => [
+            report.id,
+            report.fileGroupName?.trim() ? report.fileGroupName : 'Grupo sin identificar',
+          ]),
+        ),
+      );
+
       const combinedReport: AnalysisReport = {
         id: reports[0]?.id ?? 'combined-report',
         projectId,
@@ -766,6 +831,55 @@ export function ProjectDetailPage() {
     notify.success(`CSV exportado: ${link.download}`);
   };
 
+  const goToIssueInEditor = async (issue: AnalysisReport['issues'][number]) => {
+    const fileGroupId = reportGroupByReportId[issue.reportId];
+    const targetLanguageForIssue = issue.languageId;
+    const targetFile =
+      translationFiles.find(
+        (file) => file.language.id === targetLanguageForIssue && (!fileGroupId || file.fileGroup.id === fileGroupId),
+      ) ?? translationFiles.find((file) => file.language.id === issue.languageId);
+
+    if (!targetFile) {
+      notify.error('No se encontro archivo para este issue en el idioma seleccionado');
+      return;
+    }
+
+    const opened = await openEditorForFile(targetFile.id);
+    if (!opened) {
+      return;
+    }
+
+    const entryPaths = extractStringEntries(opened.content).map((entry) => entry.path);
+    const matchedPath = findBestMatchingPath(issue.key, entryPaths);
+
+    if (matchedPath) {
+      setEditorMode('VISUAL');
+      setEditorVisualQuery(matchedPath);
+      setHighlightedIssuePath(null);
+      setTimeout(() => setHighlightedIssuePath(matchedPath), 0);
+      setHighlightedRawLine(null);
+    } else if (issue.type === 'MISSING_KEY') {
+      setEditorMode('VISUAL');
+      setEditorVisualQuery(issue.key);
+      setHighlightedIssuePath(null);
+      setHighlightedRawLine(null);
+    } else {
+      const jsonText = JSON.stringify(opened.content, null, 2);
+      const approxLine = findJsonLineForPath(jsonText, issue.key);
+      setEditorMode('RAW');
+      setEditorVisualQuery('');
+      setHighlightedIssuePath(null);
+      setHighlightedRawLine(approxLine);
+    }
+
+    setActiveSection('editor');
+    notify.success(
+      matchedPath
+        ? `Abierto ${targetFile.filename} y foco en ${matchedPath}`
+        : `Abierto ${targetFile.filename} en modo RAW para revisar ${issue.key}`,
+    );
+  };
+
   return (
     <>
       <PageHeader
@@ -774,6 +888,13 @@ export function ProjectDetailPage() {
       />
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-24 md:px-6 lg:pb-6">
+        <div className="mb-3">
+          <Button type="button" variant="outline" size="sm" onClick={() => navigate('/projects')}>
+            <ArrowLeft size={14} className="mr-1" />
+            Volver a proyectos
+          </Button>
+        </div>
+
         {error ? (
           <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
         ) : null}
@@ -916,6 +1037,10 @@ export function ProjectDetailPage() {
                 onSaveEditorFile={saveEditorFile}
                 onEditorJsonChange={setEditorJson}
                 onEditorVisualQueryChange={setEditorVisualQuery}
+                highlightedVisualPath={highlightedIssuePath}
+                highlightedRawLine={highlightedRawLine}
+                onDismissHighlightedVisualPath={() => setHighlightedIssuePath(null)}
+                onDismissHighlightedRawLine={() => setHighlightedRawLine(null)}
                 onEditorVisualEntryChange={(path, value) => {
                   setEditorVisualEntries((prev) =>
                     prev.map((item) => (item.path === path ? { ...item, value } : item)),
@@ -944,6 +1069,7 @@ export function ProjectDetailPage() {
                 expandedIssueId={expandedIssueId}
                 projectHasReference={Boolean(project?.referenceLanguageId)}
                 languageNameById={languageNameById}
+                fileGroupNameByReportId={reportGroupNameByReportId}
                 onRunAnalysis={runAnalysis}
                 onExportIssuesCsv={exportIssuesCsv}
                 onIssueTypeFilterChange={setIssueTypeFilter}
@@ -953,6 +1079,7 @@ export function ProjectDetailPage() {
                   setIssueLanguageFilter('ALL');
                 }}
                 onToggleIssueExpanded={setExpandedIssueId}
+                onGoToIssue={goToIssueInEditor}
                 issueTypeLabel={issueTypeLabel}
                 formatIssueDetails={formatIssueDetails}
               />

@@ -20,12 +20,14 @@ type AnalysisSectionProps = {
   expandedIssueId: string | null;
   projectHasReference: boolean;
   languageNameById: Map<string, Language>;
+  fileGroupNameByReportId: Record<string, string>;
   onRunAnalysis: () => void | Promise<void>;
   onExportIssuesCsv: () => void;
   onIssueTypeFilterChange: (value: 'ALL' | IssueType) => void;
   onIssueLanguageFilterChange: (value: 'ALL' | string) => void;
   onClearIssueFilters: () => void;
   onToggleIssueExpanded: (issueId: string | null) => void;
+  onGoToIssue: (issue: AnalysisIssue) => void | Promise<void>;
   issueTypeLabel: (type: IssueType) => string;
   formatIssueDetails: (details: Record<string, unknown> | null | undefined) => string;
 };
@@ -41,15 +43,41 @@ export function AnalysisSection({
   expandedIssueId,
   projectHasReference,
   languageNameById,
+  fileGroupNameByReportId,
   onRunAnalysis,
   onExportIssuesCsv,
   onIssueTypeFilterChange,
   onIssueLanguageFilterChange,
   onClearIssueFilters,
   onToggleIssueExpanded,
+  onGoToIssue,
   issueTypeLabel,
   formatIssueDetails,
 }: AnalysisSectionProps) {
+  const issueTypeBadgeClass = (type: IssueType) => {
+    if (type === 'MISSING_KEY') {
+      return 'border-amber-300 bg-amber-50 text-amber-800';
+    }
+
+    if (type === 'UNUSED_KEY') {
+      return 'border-blue-300 bg-blue-50 text-blue-800';
+    }
+
+    return 'border-rose-300 bg-rose-50 text-rose-800';
+  };
+
+  const groupedIssues = sortedFilteredIssues.reduce<Record<string, AnalysisIssue[]>>((acc, issue) => {
+    const groupName = fileGroupNameByReportId[issue.reportId] ?? 'Grupo sin identificar';
+    if (!acc[groupName]) {
+      acc[groupName] = [];
+    }
+
+    acc[groupName].push(issue);
+    return acc;
+  }, {});
+
+  const orderedGroups = Object.entries(groupedIssues).sort((a, b) => a[0].localeCompare(b[0], 'es'));
+
   return (
     <div className="mt-2">
       <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
@@ -110,13 +138,13 @@ export function AnalysisSection({
 
           <div className="mt-4 border-t border-zinc-200 pt-4">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-700">
+              <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800">
                 Falta clave: {issueTypeStats.MISSING_KEY}
               </span>
-              <span className="rounded-full border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-700">
+              <span className="rounded-full border border-blue-300 bg-blue-50 px-2 py-1 text-xs text-blue-800">
                 No usada: {issueTypeStats.UNUSED_KEY}
               </span>
-              <span className="rounded-full border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-700">
+              <span className="rounded-full border border-rose-300 bg-rose-50 px-2 py-1 text-xs text-rose-800">
                 Interpolacion: {issueTypeStats.INTERPOLATION_MISMATCH}
               </span>
               <Button type="button" variant="outline" size="sm" onClick={onClearIssueFilters}>
@@ -134,41 +162,59 @@ export function AnalysisSection({
           {sortedFilteredIssues.length === 0 ? (
             <p className="mt-3 text-sm text-zinc-500">No se encontraron issues.</p>
           ) : (
-            <ul className="mt-3 divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white">
-              {sortedFilteredIssues.map((issue) => {
-                const language = languageNameById.get(issue.languageId);
-                const isExpanded = expandedIssueId === issue.id;
-                return (
-                  <li key={issue.id} className="flex flex-wrap items-start justify-between gap-3 px-3 py-3">
-                    <div>
-                      <p className="text-sm font-semibold text-zinc-900">{issue.key}</p>
-                      <p className="text-xs text-zinc-500">
-                        {issueTypeLabel(issue.type)} ·{' '}
-                        {language ? `${language.name} (${language.code})` : issue.languageId}
-                      </p>
-                      {isExpanded ? (
-                        <p className="mt-2 text-xs leading-relaxed text-zinc-700">
-                          {formatIssueDetails(issue.details)}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-zinc-300 bg-zinc-100 px-2 py-1 text-xs text-zinc-700">
-                        {issue.type}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onToggleIssueExpanded(isExpanded ? null : issue.id)}
-                      >
-                        {isExpanded ? 'Ocultar' : 'Ver detalle'}
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="mt-3 space-y-3">
+              {orderedGroups.map(([groupName, issues]) => (
+                <section key={groupName} className="rounded-lg border border-zinc-200 bg-white">
+                  <header className="flex items-center justify-between border-b border-zinc-200 px-3 py-2">
+                    <p className="text-sm font-semibold text-zinc-900">{groupName}</p>
+                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-600">
+                      {issues.length} issue(s)
+                    </span>
+                  </header>
+
+                  <ul className="divide-y divide-zinc-200">
+                    {issues.map((issue) => {
+                      const language = languageNameById.get(issue.languageId);
+                      const isExpanded = expandedIssueId === issue.id;
+                      return (
+                        <li key={issue.id} className="flex flex-wrap items-start justify-between gap-3 px-3 py-3">
+                          <div>
+                            <p className="text-sm font-semibold text-zinc-900">{issue.key}</p>
+                            <p className="text-xs text-zinc-500">
+                              {issueTypeLabel(issue.type)} ·{' '}
+                              {language ? `${language.name} (${language.code})` : issue.languageId}
+                            </p>
+                            {isExpanded ? (
+                              <p className="mt-2 text-xs leading-relaxed text-zinc-700">
+                                {formatIssueDetails(issue.details)}
+                              </p>
+                            ) : null}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`rounded-full border px-2 py-1 text-xs ${issueTypeBadgeClass(issue.type)}`}
+                            >
+                              {issue.type}
+                            </span>
+                            <Button type="button" variant="outline" size="sm" onClick={() => void onGoToIssue(issue)}>
+                              Ir al error
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onToggleIssueExpanded(isExpanded ? null : issue.id)}
+                            >
+                              {isExpanded ? 'Ocultar' : 'Ver detalle'}
+                            </Button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
           )}
         </div>
       ) : (
