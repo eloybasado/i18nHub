@@ -143,7 +143,7 @@ const SECTION_ITEMS = [
   { id: 'languages', label: 'Idiomas' },
   { id: 'upload', label: 'Carga' },
   { id: 'editor', label: 'Editor' },
-  { id: 'analysis', label: 'Analisis' },
+  { id: 'analysis', label: 'Análisis' },
 ] as const;
 
 type SectionId = (typeof SECTION_ITEMS)[number]['id'];
@@ -651,22 +651,33 @@ export function ProjectDetailPage() {
 
       if (result.reports.length === 0) {
         setAnalysisReport(null);
-        notify.info('El analisis no genero reportes');
+        notify.info('El análisis no genero reportes');
         return;
       }
 
-      const latestReportId = result.reports[0].id;
-      const report = await apiRequest<AnalysisReport>(`/projects/${projectId}/analysis/reports/${latestReportId}`, {
-        auth: true,
-      });
+      const reports = await Promise.all(
+        result.reports.map((reportMeta) =>
+          apiRequest<AnalysisReport>(`/projects/${projectId}/analysis/reports/${reportMeta.id}`, {
+            auth: true,
+          }),
+        ),
+      );
 
-      setAnalysisReport(report);
+      const combinedReport: AnalysisReport = {
+        id: reports[0]?.id ?? 'combined-report',
+        projectId,
+        createdAt: reports[0]?.createdAt ?? new Date().toISOString(),
+        fileGroup: null,
+        issues: reports.flatMap((report) => report.issues),
+      };
+
+      setAnalysisReport(combinedReport);
       setIssueTypeFilter('ALL');
       setIssueLanguageFilter('ALL');
       setExpandedIssueId(null);
-      notify.success(`Analisis completado: ${result.issuesCreated} issue(s) en ${result.reportsCreated} reporte(s)`);
+      notify.success(`Análisis completado: ${result.issuesCreated} issue(s) en ${result.reportsCreated} reporte(s)`);
     } catch {
-      const message = 'No se pudo ejecutar el analisis';
+      const message = 'No se pudo ejecutar el análisis';
       setError(message);
       notify.error(message);
     } finally {
@@ -772,7 +783,7 @@ export function ProjectDetailPage() {
     <main className="mx-auto w-full max-w-6xl px-4 py-6 pb-24 md:px-6 lg:pb-6">
       <PageHeader
         title={project ? project.name : 'Proyecto'}
-        subtitle="Gestion de idiomas y carga inicial de traducciones"
+        subtitle="Gestión de idiomas y carga inicial de traducciones"
       />
 
       {error ? (
@@ -838,7 +849,7 @@ export function ProjectDetailPage() {
               <div>
                 <p className="text-sm font-semibold text-zinc-900">Resumen del proyecto</p>
                 <p className="mt-1 text-sm text-zinc-600">
-                  Vista general para comprobar estado de idiomas, archivos y analisis antes de editar o cargar nuevos
+                  Vista general para comprobar estado de idiomas, archivos y análisis antes de editar o cargar nuevos
                   contenidos.
                 </p>
               </div>
@@ -863,7 +874,7 @@ export function ProjectDetailPage() {
               <div className="border-l-2 border-zinc-300 pl-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Issues</p>
                 <p className="mt-1 text-2xl font-semibold text-zinc-900">{analysisReport?.issues.length ?? 0}</p>
-                <p className="text-xs text-zinc-600">Del ultimo analisis ejecutado</p>
+                <p className="text-xs text-zinc-600">Del ultimo análisis ejecutado</p>
               </div>
 
               <div className="border-l-2 border-zinc-300 pl-3">
@@ -893,7 +904,7 @@ export function ProjectDetailPage() {
             </div>
 
             <div className="mt-5 border-t border-zinc-200 pt-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Accesos rapidos</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Accesos rápidos</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => setActiveSection('languages')}>
                   <Languages size={14} className="mr-1" />
@@ -909,7 +920,7 @@ export function ProjectDetailPage() {
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => setActiveSection('analysis')}>
                   <FileSearch size={14} className="mr-1" />
-                  Ver analisis
+                  Ver análisis
                 </Button>
               </div>
             </div>
@@ -1121,7 +1132,7 @@ export function ProjectDetailPage() {
 
               <div className="border-l-2 border-zinc-300 pl-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Paso 2</p>
-                <p className="mt-1 text-sm font-medium text-zinc-900">Modo de edicion</p>
+                <p className="mt-1 text-sm font-medium text-zinc-900">Modo de edición</p>
                 <div className="mt-2 inline-flex rounded-md border border-zinc-300 bg-white p-1">
                   <button
                     type="button"
@@ -1328,7 +1339,7 @@ export function ProjectDetailPage() {
           <div className={`${activeSection === 'analysis' ? 'block' : 'hidden'} mt-2`}>
             <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
               <FileSearch size={16} />
-              Analisis de archivos
+              Análisis de archivos
             </h2>
 
             <p className="mt-2 text-sm text-zinc-600">
@@ -1338,7 +1349,7 @@ export function ProjectDetailPage() {
 
             <div className="mt-3 flex flex-wrap gap-2">
               <Button type="button" onClick={runAnalysis} disabled={loading}>
-                {loading ? 'Analizando...' : 'Ejecutar analisis'}
+                {loading ? 'Analizando...' : 'Ejecutar análisis'}
               </Button>
 
               <Button
@@ -1457,13 +1468,13 @@ export function ProjectDetailPage() {
                 )}
               </div>
             ) : (
-              <p className="mt-3 text-sm text-zinc-500">Aun no hay un reporte cargado.</p>
+              <p className="mt-3 text-sm text-zinc-500">Aún no hay un reporte cargado.</p>
             )}
 
             {!project?.referenceLanguageId ? (
               <p className="mt-3 flex items-center gap-2 text-sm text-red-700">
                 <AlertTriangle size={14} />
-                Debes marcar un idioma de referencia antes de ejecutar el analisis.
+                Debes marcar un idioma de referencia antes de ejecutar el análisis.
               </p>
             ) : null}
           </div>

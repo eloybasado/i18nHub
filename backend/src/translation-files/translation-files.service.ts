@@ -300,6 +300,21 @@ export class TranslationFilesService {
         filename: true,
         languageId: true,
         fileGroupId: true,
+        language: {
+          select: {
+            code: true,
+          },
+        },
+        fileGroup: {
+          select: {
+            name: true,
+            project: {
+              select: {
+                i18nPattern: true,
+              },
+            },
+          },
+        },
         content: true,
       },
     });
@@ -319,7 +334,10 @@ export class TranslationFilesService {
         id: dto.targetLanguageId,
         projectId,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        code: true,
+      },
     });
 
     if (!targetLanguage) {
@@ -329,6 +347,14 @@ export class TranslationFilesService {
     const clonedContent = this.toInputJson(
       dto.clearValues ? this.clearStringValues(source.content) : source.content,
     );
+
+    const targetFilename = this.buildFilenameForLanguage({
+      pattern: source.fileGroup.project.i18nPattern,
+      sourceFilename: source.filename,
+      fileGroupName: source.fileGroup.name,
+      sourceLanguageCode: source.language.code,
+      targetLanguageCode: targetLanguage.code,
+    });
 
     const result = await this.prisma.translationFile.upsert({
       where: {
@@ -340,10 +366,11 @@ export class TranslationFilesService {
       create: {
         languageId: dto.targetLanguageId,
         fileGroupId: source.fileGroupId,
-        filename: source.filename,
+        filename: targetFilename,
         content: clonedContent,
       },
       update: {
+        filename: targetFilename,
         content: clonedContent,
       },
       select: {
@@ -367,6 +394,64 @@ export class TranslationFilesService {
     });
 
     return result;
+  }
+
+  private buildFilenameForLanguage(params: {
+    pattern: I18nPattern;
+    sourceFilename: string;
+    fileGroupName: string;
+    sourceLanguageCode: string;
+    targetLanguageCode: string;
+  }): string {
+    const {
+      pattern,
+      sourceFilename,
+      fileGroupName,
+      sourceLanguageCode,
+      targetLanguageCode,
+    } = params;
+
+    if (pattern === I18nPattern.SINGLE_FILE) {
+      return `${targetLanguageCode}.json`;
+    }
+
+    if (pattern === I18nPattern.FOLDER_PER_LOCALE) {
+      return `${fileGroupName}.json`;
+    }
+
+    const stem = sourceFilename.endsWith('.json')
+      ? sourceFilename.slice(0, -'.json'.length)
+      : sourceFilename;
+
+    if (pattern === I18nPattern.SUFFIX) {
+      const match = stem.match(
+        /^(.*?)([._-])([a-zA-Z]{2,}(?:[-_][a-zA-Z0-9]+)*)$/,
+      );
+
+      if (match && match[1] && match[2]) {
+        return `${match[1]}${match[2]}${targetLanguageCode}.json`;
+      }
+
+      return `${fileGroupName}_${targetLanguageCode}.json`;
+    }
+
+    if (pattern === I18nPattern.PREFIX) {
+      const escapedSourceCode = sourceLanguageCode.replace(
+        /[-/\\^$*+?.()|[\]{}]/g,
+        '\\$&',
+      );
+      const match = stem.match(
+        new RegExp(`^(${escapedSourceCode})([._-])(.+)$`, 'i'),
+      );
+
+      if (match && match[2] && match[3]) {
+        return `${targetLanguageCode}${match[2]}${match[3]}.json`;
+      }
+
+      return `${targetLanguageCode}_${fileGroupName}.json`;
+    }
+
+    return sourceFilename;
   }
 
   private parseByPattern(

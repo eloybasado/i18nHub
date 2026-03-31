@@ -138,6 +138,89 @@ describe('AnalysisService', () => {
     ).toBe(true);
   });
 
+  it('creates issues for each non-reference language when project has 3 languages', async () => {
+    prismaMock.project.findUnique = jest.fn().mockResolvedValue({
+      id: 'project-1',
+      referenceLanguageId: 'lang-en',
+      languages: [
+        { id: 'lang-en', code: 'en' },
+        { id: 'lang-es', code: 'es' },
+        { id: 'lang-fr', code: 'fr' },
+      ],
+      fileGroups: [{ id: 'group-1', name: 'home' }],
+    });
+
+    const analysisIssueCreateMany = jest.fn().mockResolvedValue({ count: 4 });
+
+    prismaMock.$transaction = jest.fn().mockImplementation(async (callback) =>
+      callback({
+        translationFile: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              languageId: 'lang-en',
+              content: {
+                title: 'Hello {name}',
+                subtitle: 'Welcome',
+              },
+            },
+            {
+              languageId: 'lang-es',
+              content: {
+                title: 'Hola {nombre}',
+              },
+            },
+            {
+              languageId: 'lang-fr',
+              content: {
+                title: 'Bonjour {name}',
+                extra: 'Supprime',
+              },
+            },
+          ]),
+        },
+        analysisReport: {
+          create: jest.fn().mockResolvedValue({ id: 'report-1' }),
+        },
+        analysisIssue: {
+          createMany: analysisIssueCreateMany,
+        },
+      }),
+    );
+
+    const result = await service.run('project-1', {});
+
+    expect(result.issuesCreated).toBe(4);
+
+    const payload = analysisIssueCreateMany.mock.calls[0][0].data as Array<{
+      type: IssueType;
+      languageId: string;
+      key: string;
+    }>;
+
+    expect(payload.filter((issue) => issue.languageId === 'lang-es')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: IssueType.MISSING_KEY,
+          key: 'subtitle',
+        }),
+        expect.objectContaining({
+          type: IssueType.INTERPOLATION_MISMATCH,
+          key: 'title',
+        }),
+      ]),
+    );
+
+    expect(payload.filter((issue) => issue.languageId === 'lang-fr')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: IssueType.MISSING_KEY,
+          key: 'subtitle',
+        }),
+        expect.objectContaining({ type: IssueType.UNUSED_KEY, key: 'extra' }),
+      ]),
+    );
+  });
+
   it('throws when reference file is missing in a file group', async () => {
     prismaMock.project.findUnique = jest.fn().mockResolvedValue({
       id: 'project-1',

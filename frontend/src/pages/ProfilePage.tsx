@@ -65,10 +65,10 @@ export function ProfilePage() {
         auth: true,
       });
       session.clear();
-      notify.success('Sesion cerrada en todos los dispositivos');
+      notify.success('Sesión cerrada en todos los dispositivos');
       window.location.href = '/login';
     } catch {
-      const message = 'No se pudo cerrar sesion en todos los dispositivos';
+      const message = 'No se pudo cerrar sesión en todos los dispositivos';
       setError(message);
       notify.error(message);
     } finally {
@@ -78,7 +78,7 @@ export function ProfilePage() {
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-6 md:px-6">
-      <PageHeader title="Mi perfil" subtitle="Gestiona tu informacion de cuenta y opciones de sesion." />
+      <PageHeader title="Mi perfil" subtitle="Gestióna tu informacion de cuenta y opciones de sesión." />
 
       {error ? (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
@@ -135,11 +135,11 @@ export function ProfilePage() {
       <section className="mt-6 border-t border-zinc-200 pt-6">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
           <ShieldCheck size={16} />
-          Seguridad y sesion
+          Seguridad y sesión
         </h2>
 
         <p className="mt-2 text-sm text-zinc-600">
-          Si detectas actividad sospechosa, puedes revocar la sesion actual y cualquier sesion abierta en otros
+          Si detectas actividad sospechosa, puedes revocar la sesión actual y cualquier sesión abierta en otros
           dispositivos.
         </p>
 
@@ -149,7 +149,7 @@ export function ProfilePage() {
           disabled={loading}
           onClick={onLogoutAll}
         >
-          Cerrar sesion en todos los dispositivos
+          Cerrar sesión en todos los dispositivos
         </Button>
       </section>
     </main>
