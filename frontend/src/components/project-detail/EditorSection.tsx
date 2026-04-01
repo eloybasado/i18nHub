@@ -1,6 +1,17 @@
-import { Archive, CircleHelp, Download, FilePenLine, Maximize2, Minimize2 } from 'lucide-react';
+import {
+  Archive,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
+  Download,
+  FileClock,
+  FilePenLine,
+  Maximize2,
+  Minimize2,
+  RotateCcw,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { Language, TranslationFileSummary } from '../../lib/types';
+import type { Language, TranslationFileSummary, TranslationFileVersionSummary } from '../../lib/types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select } from '../ui/select';
@@ -43,6 +54,13 @@ type EditorSectionProps = {
   onCloneModeChange: (mode: CloneMode) => void;
   onCloneEmptyStructure: () => void;
   onRequestCopyContent: () => void;
+  currentIssueIndex: number;
+  totalIssues: number;
+  onGoToPreviousIssue: () => void;
+  onGoToNextIssue: () => void;
+  versions: TranslationFileVersionSummary[];
+  versionsLoading: boolean;
+  onRestoreVersion: (versionId: string) => void | Promise<void>;
 };
 
 export function EditorSection({
@@ -76,6 +94,13 @@ export function EditorSection({
   onCloneModeChange,
   onCloneEmptyStructure,
   onRequestCopyContent,
+  currentIssueIndex,
+  totalIssues,
+  onGoToPreviousIssue,
+  onGoToNextIssue,
+  versions,
+  versionsLoading,
+  onRestoreVersion,
 }: EditorSectionProps) {
   const rawEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [rawExpanded, setRawExpanded] = useState(false);
@@ -191,6 +216,36 @@ export function EditorSection({
         </p>
 
         <div className="flex flex-wrap items-center gap-2">
+          {totalIssues > 0 ? (
+            <div className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-1.5 py-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 w-8 p-0"
+                aria-label="Issue anterior"
+                title="Issue anterior"
+                onClick={onGoToPreviousIssue}
+              >
+                <ChevronLeft size={14} />
+              </Button>
+              <span className="min-w-16 text-center text-xs text-zinc-600">
+                {currentIssueIndex >= 0 ? `${currentIssueIndex + 1}/${totalIssues}` : `0/${totalIssues}`}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 w-8 p-0"
+                aria-label="Issue siguiente"
+                title="Issue siguiente"
+                onClick={onGoToNextIssue}
+              >
+                <ChevronRight size={14} />
+              </Button>
+            </div>
+          ) : null}
+
           <Button
             type="button"
             className="border-sky-700 bg-sky-600 text-white shadow-sm hover:bg-sky-700"
@@ -324,6 +379,44 @@ export function EditorSection({
           </div>
         </div>
       )}
+
+      <div className="mt-5 border-t border-zinc-200 pt-4">
+        <p className="mb-1 flex items-center gap-2 text-base font-medium text-zinc-900">
+          <FileClock size={16} />
+          Historial de versiones
+        </p>
+        <p className="text-sm text-zinc-600">Solo disponible para cuentas PRO. Se guarda snapshot automático antes de cada cambio.</p>
+
+        {versionsLoading ? (
+          <p className="mt-2 text-sm text-zinc-500">Cargando versiones...</p>
+        ) : versions.length === 0 ? (
+          <p className="mt-2 text-sm text-zinc-500">No hay versiones disponibles para este archivo.</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white">
+            {versions.slice(0, 8).map((version) => (
+              <li key={version.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                <div>
+                  <p className="text-sm font-medium text-zinc-900">v{version.versionNumber}</p>
+                  <p className="text-xs text-zinc-500">
+                    {new Date(version.createdAt).toLocaleString('es-ES')} · {version.createdBy.name}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  aria-label={`Restaurar versión ${version.versionNumber}`}
+                  title={`Restaurar versión ${version.versionNumber}`}
+                  onClick={() => void onRestoreVersion(version.id)}
+                >
+                  <RotateCcw size={14} />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div className="mt-5 border-t border-zinc-200 pt-4">
         <p className="text-base font-medium text-zinc-900">Crear/actualizar archivo en otro idioma</p>

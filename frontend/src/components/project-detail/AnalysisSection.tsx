@@ -1,5 +1,17 @@
-import { AlertTriangle, FileSearch } from 'lucide-react';
+import { useState } from 'react';
+import {
+  AlertTriangle,
+  ArrowRightToLine,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Eye,
+  EyeOff,
+  FileSearch,
+  TextSearch,
+} from 'lucide-react';
 import type { AnalysisIssue, AnalysisReport, IssueType, Language } from '../../lib/types';
+import { notify } from '../../lib/toast';
 import { Button } from '../ui/button';
 import { Select } from '../ui/select';
 
@@ -54,6 +66,8 @@ export function AnalysisSection({
   issueTypeLabel,
   formatIssueDetails,
 }: AnalysisSectionProps) {
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
   const issueTypeBadgeClass = (type: IssueType) => {
     if (type === 'MISSING_KEY') {
       return 'border-amber-300 bg-amber-50 text-amber-800';
@@ -77,6 +91,30 @@ export function AnalysisSection({
   }, {});
 
   const orderedGroups = Object.entries(groupedIssues).sort((a, b) => a[0].localeCompare(b[0], 'es'));
+
+  const toggleGroupCollapse = (groupName: string) => {
+    setCollapsedGroups((prev) => ({
+      ...prev,
+      [groupName]: !prev[groupName],
+    }));
+  };
+
+  const collapseAllGroups = () => {
+    setCollapsedGroups(Object.fromEntries(orderedGroups.map(([groupName]) => [groupName, true])));
+  };
+
+  const expandAllGroups = () => {
+    setCollapsedGroups(Object.fromEntries(orderedGroups.map(([groupName]) => [groupName, false])));
+  };
+
+  const copyToClipboard = async (value: string, successMessage: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      notify.success(successMessage);
+    } catch {
+      notify.error('No se pudo copiar al portapapeles');
+    }
+  };
 
   return (
     <div className="mt-2">
@@ -163,16 +201,38 @@ export function AnalysisSection({
             <p className="mt-3 text-sm text-zinc-500">No se encontraron issues.</p>
           ) : (
             <div className="mt-3 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={expandAllGroups}>
+                  Expandir grupos
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={collapseAllGroups}>
+                  Colapsar grupos
+                </Button>
+              </div>
+
               {orderedGroups.map(([groupName, issues]) => (
                 <section key={groupName} className="rounded-lg border border-zinc-200 bg-white">
                   <header className="flex items-center justify-between border-b border-zinc-200 px-3 py-2">
                     <p className="text-sm font-semibold text-zinc-900">{groupName}</p>
-                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-600">
-                      {issues.length} issue(s)
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-600">
+                        {issues.length} issue(s)
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        aria-label={collapsedGroups[groupName] ? `Expandir grupo ${groupName}` : `Colapsar grupo ${groupName}`}
+                        title={collapsedGroups[groupName] ? 'Expandir grupo' : 'Colapsar grupo'}
+                        onClick={() => toggleGroupCollapse(groupName)}
+                      >
+                        {collapsedGroups[groupName] ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                      </Button>
+                    </div>
                   </header>
 
-                  <ul className="divide-y divide-zinc-200">
+                  <ul className={`divide-y divide-zinc-200 ${collapsedGroups[groupName] ? 'hidden' : ''}`}>
                     {issues.map((issue) => {
                       const language = languageNameById.get(issue.languageId);
                       const isExpanded = expandedIssueId === issue.id;
@@ -196,16 +256,51 @@ export function AnalysisSection({
                             >
                               {issue.type}
                             </span>
-                            <Button type="button" variant="outline" size="sm" onClick={() => void onGoToIssue(issue)}>
-                              Ir al error
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              aria-label="Copiar clave"
+                              title="Copiar clave"
+                              onClick={() => void copyToClipboard(issue.key, 'Clave copiada')}
+                            >
+                              <Copy size={14} />
                             </Button>
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
+                              className="h-8 w-8 p-0"
+                              aria-label="Copiar detalle"
+                              title="Copiar detalle"
+                              onClick={() =>
+                                void copyToClipboard(formatIssueDetails(issue.details), 'Detalle copiado')
+                              }
+                            >
+                              <TextSearch size={14} />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              aria-label="Ir al error"
+                              title="Ir al error"
+                              onClick={() => void onGoToIssue(issue)}
+                            >
+                              <ArrowRightToLine size={14} />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              aria-label={isExpanded ? 'Ocultar detalle' : 'Ver detalle'}
+                              title={isExpanded ? 'Ocultar detalle' : 'Ver detalle'}
                               onClick={() => onToggleIssueExpanded(isExpanded ? null : issue.id)}
                             >
-                              {isExpanded ? 'Ocultar' : 'Ver detalle'}
+                              {isExpanded ? <EyeOff size={14} /> : <Eye size={14} />}
                             </Button>
                           </div>
                         </li>

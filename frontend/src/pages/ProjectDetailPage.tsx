@@ -31,6 +31,7 @@ import type {
   RunAnalysisResponse,
   TranslationFileDetail,
   TranslationFileSummary,
+  TranslationFileVersionSummary,
 } from '../lib/types';
 
 type VisualEntry = {
@@ -172,9 +173,12 @@ export function ProjectDetailPage() {
   const [editorTargetLanguageId, setEditorTargetLanguageId] = useState('');
   const [editorCloneMode, setEditorCloneMode] = useState<CloneMode>('EMPTY_STRUCTURE');
   const [cloneConfirmOpen, setCloneConfirmOpen] = useState(false);
+  const [editorVersions, setEditorVersions] = useState<TranslationFileVersionSummary[]>([]);
+  const [editorVersionsLoading, setEditorVersionsLoading] = useState(false);
   const [editorBusy, setEditorBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [expandedIssueId, setExpandedIssueId] = useState<string | null>(null);
+  const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
   const [highlightedIssuePath, setHighlightedIssuePath] = useState<string | null>(null);
   const [highlightedRawLine, setHighlightedRawLine] = useState<number | null>(null);
   const [reportGroupByReportId, setReportGroupByReportId] = useState<Record<string, string>>({});
@@ -325,6 +329,8 @@ export function ProjectDetailPage() {
         setEditorVisualQuery('');
         setEditorJson('');
         setEditorTargetLanguageId('');
+        setEditorVersions([]);
+        setEditorVersionsLoading(false);
       }
 
       notify.success('Idioma eliminado correctamente');
@@ -438,6 +444,20 @@ export function ProjectDetailPage() {
       setEditorTargetLanguageId('');
       setEditorCloneMode('EMPTY_STRUCTURE');
       setCloneConfirmOpen(false);
+
+      setEditorVersionsLoading(true);
+      try {
+        const versions = await apiRequest<TranslationFileVersionSummary[]>(
+          `/projects/${projectId}/translation-files/${file.id}/versions`,
+          { auth: true },
+        );
+        setEditorVersions(versions);
+      } catch {
+        setEditorVersions([]);
+      } finally {
+        setEditorVersionsLoading(false);
+      }
+
       notify.success(`Archivo abierto en editor: ${file.filename}`);
       return file;
     } catch {
@@ -525,6 +545,17 @@ export function ProjectDetailPage() {
       setEditorSourceContent(updated.content);
       setEditorVisualEntries(extractStringEntries(updated.content));
       setEditorJson(JSON.stringify(updated.content, null, 2));
+
+      try {
+        const versions = await apiRequest<TranslationFileVersionSummary[]>(
+          `/projects/${projectId}/translation-files/${editorFileId}/versions`,
+          { auth: true },
+        );
+        setEditorVersions(versions);
+      } catch {
+        setEditorVersions([]);
+      }
+
       notify.success('Archivo guardado correctamente');
       await load();
     } catch {
@@ -727,6 +758,7 @@ export function ProjectDetailPage() {
       setIssueTypeFilter('ALL');
       setIssueLanguageFilter('ALL');
       setExpandedIssueId(null);
+      setActiveIssueId(null);
       notify.success(`Análisis completado: ${result.issuesCreated} issue(s) en ${result.reportsCreated} reporte(s)`);
     } catch {
       const message = 'No se pudo ejecutar el análisis';
@@ -777,6 +809,8 @@ export function ProjectDetailPage() {
 
     return a.key.localeCompare(b.key, 'es');
   });
+
+  const activeIssueIndex = sortedFilteredIssues.findIndex((issue) => issue.id === activeIssueId);
 
   const formatIssueDetails = (details: AnalysisReport['issues'][number]['details']) => {
     if (!details) {
@@ -832,6 +866,8 @@ export function ProjectDetailPage() {
   };
 
   const goToIssueInEditor = async (issue: AnalysisReport['issues'][number]) => {
+    setActiveIssueId(issue.id);
+
     const fileGroupId = reportGroupByReportId[issue.reportId];
     const targetLanguageForIssue = issue.languageId;
     const targetFile =
@@ -880,6 +916,66 @@ export function ProjectDetailPage() {
     );
   };
 
+  const goToPreviousIssue = () => {
+    if (sortedFilteredIssues.length === 0) {
+      return;
+    }
+
+    const startIndex = activeIssueIndex >= 0 ? activeIssueIndex : 0;
+    const nextIndex = (startIndex - 1 + sortedFilteredIssues.length) % sortedFilteredIssues.length;
+    void goToIssueInEditor(sortedFilteredIssues[nextIndex]);
+  };
+
+  const goToNextIssue = () => {
+    if (sortedFilteredIssues.length === 0) {
+      return;
+    }
+
+    const startIndex = activeIssueIndex >= 0 ? activeIssueIndex : -1;
+    const nextIndex = (startIndex + 1 + sortedFilteredIssues.length) % sortedFilteredIssues.length;
+    void goToIssueInEditor(sortedFilteredIssues[nextIndex]);
+  };
+
+  const restoreEditorVersion = async (versionId: string) => {
+    if (!projectId || !editorFileId) {
+      return;
+    }
+
+    setEditorBusy(true);
+    try {
+      const restored = await apiRequest<TranslationFileDetail>(
+        `/projects/${projectId}/translation-files/${editorFileId}/versions/${versionId}/restore`,
+        {
+          method: 'PATCH',
+          auth: true,
+          body: {},
+        },
+      );
+
+      setEditorFileMeta(restored);
+      setEditorSourceContent(restored.content);
+      setEditorVisualEntries(extractStringEntries(restored.content));
+      setEditorJson(JSON.stringify(restored.content, null, 2));
+
+      try {
+        const versions = await apiRequest<TranslationFileVersionSummary[]>(
+          `/projects/${projectId}/translation-files/${editorFileId}/versions`,
+          { auth: true },
+        );
+        setEditorVersions(versions);
+      } catch {
+        setEditorVersions([]);
+      }
+
+      notify.success('Versión restaurada correctamente');
+      await load();
+    } catch {
+      notify.error('No se pudo restaurar la versión');
+    } finally {
+      setEditorBusy(false);
+    }
+  };
+
   return (
     <>
       <PageHeader
@@ -888,10 +984,10 @@ export function ProjectDetailPage() {
       />
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-24 md:px-6 lg:pb-6">
-        <div className="mb-3">
+        <div className="mb-3 lg:pl-72">
           <Button type="button" variant="outline" size="sm" onClick={() => navigate('/projects')}>
-            <ArrowLeft size={14} className="mr-1" />
-            Volver a proyectos
+            <ArrowLeft size={14} className="sm:mr-1" />
+            <span className="hidden sm:inline">Volver a proyectos</span>
           </Button>
         </div>
 
@@ -1031,6 +1127,8 @@ export function ProjectDetailPage() {
                   setEditorJson('');
                   setEditorTargetLanguageId('');
                   setEditorCloneMode('EMPTY_STRUCTURE');
+                  setEditorVersions([]);
+                  setEditorVersionsLoading(false);
                   setCloneConfirmOpen(false);
                 }}
                 onChangeEditorMode={onChangeEditorMode}
@@ -1054,6 +1152,13 @@ export function ProjectDetailPage() {
                   void cloneEditorFileToLanguage(true);
                 }}
                 onRequestCopyContent={() => setCloneConfirmOpen(true)}
+                currentIssueIndex={activeIssueIndex}
+                totalIssues={sortedFilteredIssues.length}
+                onGoToPreviousIssue={goToPreviousIssue}
+                onGoToNextIssue={goToNextIssue}
+                versions={editorVersions}
+                versionsLoading={editorVersionsLoading}
+                onRestoreVersion={restoreEditorVersion}
               />
             </div>
 
