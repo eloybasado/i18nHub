@@ -1,9 +1,11 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { I18nPattern, Prisma } from '@prisma/client';
+import { I18nPattern, Prisma, Tier } from '@prisma/client';
+import { JwtPayload } from '../auth/types';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloneTranslationFileDto } from './dto/clone-translation-file.dto';
 import { IngestTranslationFilesDto } from './dto/ingest-translation-files.dto';
@@ -98,6 +100,160 @@ export class TranslationFilesService {
           },
         },
       ],
+    });
+  }
+
+  async listVersions(
+    projectId: string,
+    translationFileId: string,
+    user: JwtPayload,
+  ) {
+    await this.ensureProjectExists(projectId);
+
+    if (user.tier !== Tier.PRO) {
+      throw new ForbiddenException(
+        'Version history is available for PRO users only',
+      );
+    }
+
+    const translationFile = await this.prisma.translationFile.findFirst({
+      where: {
+        id: translationFileId,
+        fileGroup: {
+          projectId,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!translationFile) {
+      throw new NotFoundException('Translation file not found in project');
+    }
+
+    return this.prisma.translationFileVersion.findMany({
+      where: {
+        translationFileId,
+      },
+      orderBy: {
+        versionNumber: 'desc',
+      },
+      select: {
+        id: true,
+        versionNumber: true,
+        createdAt: true,
+        comment: true,
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  async restoreVersion(
+    projectId: string,
+    translationFileId: string,
+    versionId: string,
+    user: JwtPayload,
+  ) {
+    await this.ensureProjectExists(projectId);
+
+    if (user.tier !== Tier.PRO) {
+      throw new ForbiddenException(
+        'Version history is available for PRO users only',
+      );
+    }
+
+    const translationFile = await this.prisma.translationFile.findFirst({
+      where: {
+        id: translationFileId,
+        fileGroup: {
+          projectId,
+        },
+      },
+      select: {
+        id: true,
+        content: true,
+      },
+    });
+
+    if (!translationFile) {
+      throw new NotFoundException('Translation file not found in project');
+    }
+
+    const version = await this.prisma.translationFileVersion.findFirst({
+      where: {
+        id: versionId,
+        translationFileId,
+      },
+      select: {
+        id: true,
+        versionNumber: true,
+        content: true,
+      },
+    });
+
+    if (!version) {
+      throw new NotFoundException(
+        'Version not found for this translation file',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const latestVersion = await tx.translationFileVersion.findFirst({
+        where: {
+          translationFileId,
+        },
+        orderBy: {
+          versionNumber: 'desc',
+        },
+        select: {
+          versionNumber: true,
+        },
+      });
+
+      await tx.translationFileVersion.create({
+        data: {
+          translationFileId,
+          content: this.toInputJson(translationFile.content),
+          versionNumber: (latestVersion?.versionNumber ?? 0) + 1,
+          createdById: user.sub,
+          comment: `Auto snapshot before restoring v${version.versionNumber}`,
+        },
+      });
+
+      return tx.translationFile.update({
+        where: {
+          id: translationFileId,
+        },
+        data: {
+          content: this.toInputJson(version.content),
+        },
+        select: {
+          id: true,
+          filename: true,
+          content: true,
+          uploadedAt: true,
+          language: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
+          },
+          fileGroup: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
     });
   }
 
@@ -241,6 +397,7 @@ export class TranslationFilesService {
     projectId: string,
     translationFileId: string,
     dto: UpdateTranslationFileContentDto,
+    user: JwtPayload,
   ) {
     await this.ensureProjectExists(projectId);
 
@@ -251,11 +408,66 @@ export class TranslationFilesService {
           projectId,
         },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        content: true,
+      },
     });
 
     if (!translationFile) {
       throw new NotFoundException('Translation file not found in project');
+    }
+
+    if (user.tier === Tier.PRO) {
+      return this.prisma.$transaction(async (tx) => {
+        const latestVersion = await tx.translationFileVersion.findFirst({
+          where: {
+            translationFileId,
+          },
+          orderBy: {
+            versionNumber: 'desc',
+          },
+          select: {
+            versionNumber: true,
+          },
+        });
+
+        await tx.translationFileVersion.create({
+          data: {
+            translationFileId,
+            content: this.toInputJson(translationFile.content),
+            versionNumber: (latestVersion?.versionNumber ?? 0) + 1,
+            createdById: user.sub,
+            comment: 'Auto snapshot before content update',
+          },
+        });
+
+        return tx.translationFile.update({
+          where: { id: translationFileId },
+          data: {
+            content: dto.content as Prisma.InputJsonValue,
+          },
+          select: {
+            id: true,
+            filename: true,
+            content: true,
+            uploadedAt: true,
+            language: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+            fileGroup: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        });
+      });
     }
 
     return this.prisma.translationFile.update({

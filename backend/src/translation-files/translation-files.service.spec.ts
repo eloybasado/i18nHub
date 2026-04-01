@@ -1,5 +1,9 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { I18nPattern } from '@prisma/client';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { GlobalRole, I18nPattern, Tier } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TranslationFilesService } from './translation-files.service';
 
@@ -14,6 +18,12 @@ describe('TranslationFilesService', () => {
     translationFile: {
       findFirst: jest.fn(),
       upsert: jest.fn(),
+      update: jest.fn(),
+    },
+    translationFileVersion: {
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      findMany: jest.fn(),
     },
     $transaction: jest.fn(),
   } as unknown as PrismaService;
@@ -24,6 +34,12 @@ describe('TranslationFilesService', () => {
     },
     translationFile: {
       upsert: jest.fn(),
+      update: jest.fn(),
+    },
+    translationFileVersion: {
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      findMany: jest.fn(),
     },
   };
 
@@ -56,6 +72,24 @@ describe('TranslationFilesService', () => {
           name: 'home',
         },
       }));
+    prismaMock.translationFile.update = jest.fn().mockResolvedValue({
+      id: 'tf-1',
+      filename: 'home_es.json',
+      content: { title: 'Nuevo' },
+      uploadedAt: new Date('2026-03-31T00:00:00.000Z'),
+      language: {
+        id: 'lang-es',
+        code: 'es',
+        name: 'Spanish',
+      },
+      fileGroup: {
+        id: 'group-home',
+        name: 'home',
+      },
+    });
+    prismaMock.translationFileVersion.findFirst = jest.fn().mockResolvedValue(null);
+    prismaMock.translationFileVersion.create = jest.fn().mockResolvedValue({});
+    prismaMock.translationFileVersion.findMany = jest.fn().mockResolvedValue([]);
 
     txMock.fileGroup.upsert.mockImplementation(
       async (args: { where: { projectId_name: { name: string } } }) => ({
@@ -64,6 +98,23 @@ describe('TranslationFilesService', () => {
       }),
     );
     txMock.translationFile.upsert.mockResolvedValue({});
+    txMock.translationFile.update.mockResolvedValue({
+      id: 'tf-1',
+      filename: 'home_es.json',
+      content: { title: 'Nuevo' },
+      uploadedAt: new Date('2026-03-31T00:00:00.000Z'),
+      language: {
+        id: 'lang-es',
+        code: 'es',
+        name: 'Spanish',
+      },
+      fileGroup: {
+        id: 'group-home',
+        name: 'home',
+      },
+    });
+    txMock.translationFileVersion.findFirst.mockResolvedValue(null);
+    txMock.translationFileVersion.create.mockResolvedValue({});
 
     prismaMock.$transaction = jest
       .fn()
@@ -325,6 +376,173 @@ describe('TranslationFilesService', () => {
         files: [{ path: 'locales/es.json', content: { x: 'y' } }],
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('updateContent creates a new version for PRO users before updating', async () => {
+    prismaMock.translationFile.findFirst = jest.fn().mockResolvedValue({
+      id: 'tf-1',
+      content: {
+        title: 'Anterior',
+      },
+    });
+    txMock.translationFileVersion.findFirst.mockResolvedValue({
+      versionNumber: 3,
+    });
+
+    await service.updateContent(
+      'project-1',
+      'tf-1',
+      {
+        content: {
+          title: 'Nuevo',
+        },
+      },
+      {
+        sub: 'user-pro',
+        email: 'pro@test.com',
+        role: GlobalRole.MEMBER,
+        tier: Tier.PRO,
+      },
+    );
+
+    expect(txMock.translationFileVersion.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          translationFileId: 'tf-1',
+          versionNumber: 4,
+          createdById: 'user-pro',
+        }),
+      }),
+    );
+    expect(txMock.translationFile.update).toHaveBeenCalled();
+  });
+
+  it('updateContent does not create versions for FREE users', async () => {
+    prismaMock.translationFile.findFirst = jest.fn().mockResolvedValue({
+      id: 'tf-1',
+      content: {
+        title: 'Anterior',
+      },
+    });
+
+    await service.updateContent(
+      'project-1',
+      'tf-1',
+      {
+        content: {
+          title: 'Nuevo',
+        },
+      },
+      {
+        sub: 'user-free',
+        email: 'free@test.com',
+        role: GlobalRole.MEMBER,
+        tier: Tier.FREE,
+      },
+    );
+
+    expect(prismaMock.translationFile.update).toHaveBeenCalled();
+    expect(txMock.translationFileVersion.create).not.toHaveBeenCalled();
+  });
+
+  it('listVersions returns versions for PRO users', async () => {
+    prismaMock.translationFile.findFirst = jest.fn().mockResolvedValue({
+      id: 'tf-1',
+    });
+    prismaMock.translationFileVersion.findMany = jest.fn().mockResolvedValue([
+      {
+        id: 'v2',
+        versionNumber: 2,
+      },
+      {
+        id: 'v1',
+        versionNumber: 1,
+      },
+    ]);
+
+    const result = await service.listVersions('project-1', 'tf-1', {
+      sub: 'user-pro',
+      email: 'pro@test.com',
+      role: GlobalRole.MEMBER,
+      tier: Tier.PRO,
+    });
+
+    expect(result).toHaveLength(2);
+    expect(prismaMock.translationFileVersion.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          translationFileId: 'tf-1',
+        },
+      }),
+    );
+  });
+
+  it('listVersions throws for FREE users', async () => {
+    await expect(
+      service.listVersions('project-1', 'tf-1', {
+        sub: 'user-free',
+        email: 'free@test.com',
+        role: GlobalRole.MEMBER,
+        tier: Tier.FREE,
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('restoreVersion restores selected version for PRO users and snapshots current content', async () => {
+    prismaMock.translationFile.findFirst = jest.fn().mockResolvedValue({
+      id: 'tf-1',
+      content: {
+        title: 'Actual',
+      },
+    });
+    prismaMock.translationFileVersion.findFirst = jest
+      .fn()
+      .mockResolvedValueOnce({
+        id: 'version-1',
+        versionNumber: 1,
+        content: {
+          title: 'Version antigua',
+        },
+      });
+    txMock.translationFileVersion.findFirst.mockResolvedValue({ versionNumber: 4 });
+
+    await service.restoreVersion('project-1', 'tf-1', 'version-1', {
+      sub: 'user-pro',
+      email: 'pro@test.com',
+      role: GlobalRole.MEMBER,
+      tier: Tier.PRO,
+    });
+
+    expect(txMock.translationFileVersion.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          translationFileId: 'tf-1',
+          versionNumber: 5,
+          createdById: 'user-pro',
+        }),
+      }),
+    );
+    expect(txMock.translationFile.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'tf-1' },
+        data: {
+          content: {
+            title: 'Version antigua',
+          },
+        },
+      }),
+    );
+  });
+
+  it('restoreVersion throws for FREE users', async () => {
+    await expect(
+      service.restoreVersion('project-1', 'tf-1', 'version-1', {
+        sub: 'user-free',
+        email: 'free@test.com',
+        role: GlobalRole.MEMBER,
+        tier: Tier.FREE,
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it.each([
