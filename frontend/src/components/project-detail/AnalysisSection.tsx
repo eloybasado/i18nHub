@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   AlertTriangle,
   ArrowRightToLine,
@@ -10,8 +9,9 @@ import {
   FileSearch,
   TextSearch,
 } from 'lucide-react';
-import type { AnalysisIssue, AnalysisReport, IssueType, Language } from '../../lib/types';
+import { useState } from 'react';
 import { notify } from '../../lib/toast';
+import type { AnalysisIssue, AnalysisReport, IssueType, Language } from '../../lib/types';
 import { Button } from '../ui/button';
 import { Select } from '../ui/select';
 
@@ -223,7 +223,9 @@ export function AnalysisSection({
                         size="sm"
                         variant="outline"
                         className="h-8 w-8 p-0"
-                        aria-label={collapsedGroups[groupName] ? `Expandir grupo ${groupName}` : `Colapsar grupo ${groupName}`}
+                        aria-label={
+                          collapsedGroups[groupName] ? `Expandir grupo ${groupName}` : `Colapsar grupo ${groupName}`
+                        }
                         title={collapsedGroups[groupName] ? 'Expandir grupo' : 'Colapsar grupo'}
                         onClick={() => toggleGroupCollapse(groupName)}
                       >
@@ -274,9 +276,7 @@ export function AnalysisSection({
                               className="h-8 w-8 p-0"
                               aria-label="Copiar detalle"
                               title="Copiar detalle"
-                              onClick={() =>
-                                void copyToClipboard(formatIssueDetails(issue.details), 'Detalle copiado')
-                              }
+                              onClick={() => void copyToClipboard(formatIssueDetails(issue.details), 'Detalle copiado')}
                             >
                               <TextSearch size={14} />
                             </Button>

@@ -1,5 +1,6 @@
 import {
   Archive,
+  Bot,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
@@ -61,6 +62,8 @@ type EditorSectionProps = {
   versions: TranslationFileVersionSummary[];
   versionsLoading: boolean;
   onRestoreVersion: (versionId: string) => void | Promise<void>;
+  aiSuggestBusy: boolean;
+  onRequestAiSuggestions: () => void | Promise<void>;
 };
 
 export function EditorSection({
@@ -101,6 +104,8 @@ export function EditorSection({
   versions,
   versionsLoading,
   onRestoreVersion,
+  aiSuggestBusy,
+  onRequestAiSuggestions,
 }: EditorSectionProps) {
   const rawEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [rawExpanded, setRawExpanded] = useState(false);
@@ -216,6 +221,17 @@ export function EditorSection({
         </p>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!editorFileId || editorBusy || aiSuggestBusy}
+            onClick={() => void onRequestAiSuggestions()}
+          >
+            <Bot size={14} className="mr-1.5" />
+            {aiSuggestBusy ? 'Sugiriendo...' : 'Sugerir IA'}
+          </Button>
+
           {totalIssues > 0 ? (
             <div className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-1.5 py-1">
               <Button
@@ -385,7 +401,9 @@ export function EditorSection({
           <FileClock size={16} />
           Historial de versiones
         </p>
-        <p className="text-sm text-zinc-600">Solo disponible para cuentas PRO. Se guarda snapshot automático antes de cada cambio.</p>
+        <p className="text-sm text-zinc-600">
+          Solo disponible para cuentas PRO. Se guarda snapshot automático antes de cada cambio.
+        </p>
 
         {versionsLoading ? (
           <p className="mt-2 text-sm text-zinc-500">Cargando versiones...</p>

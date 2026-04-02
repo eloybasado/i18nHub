@@ -175,6 +175,7 @@ export function ProjectDetailPage() {
   const [cloneConfirmOpen, setCloneConfirmOpen] = useState(false);
   const [editorVersions, setEditorVersions] = useState<TranslationFileVersionSummary[]>([]);
   const [editorVersionsLoading, setEditorVersionsLoading] = useState(false);
+  const [aiSuggestBusy, setAiSuggestBusy] = useState(false);
   const [editorBusy, setEditorBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [expandedIssueId, setExpandedIssueId] = useState<string | null>(null);
@@ -976,6 +977,85 @@ export function ProjectDetailPage() {
     }
   };
 
+  const requestAiSuggestions = async () => {
+    if (!projectId || !editorFileMeta) {
+      notify.error('Abre un archivo en el editor antes de pedir sugerencias IA');
+      return;
+    }
+
+    let baseContent: Record<string, unknown>;
+    if (editorMode === 'RAW') {
+      try {
+        baseContent = JSON.parse(editorJson) as Record<string, unknown>;
+      } catch {
+        notify.error('El JSON RAW no es válido. Corrígelo antes de usar IA.');
+        return;
+      }
+    } else {
+      if (!editorSourceContent) {
+        notify.error('No hay contenido base para sugerencias IA');
+        return;
+      }
+
+      baseContent = buildVisualContent(editorSourceContent, editorVisualEntries);
+    }
+
+    const entries = extractStringEntries(baseContent);
+    if (entries.length === 0) {
+      notify.error('No hay claves de texto para sugerir');
+      return;
+    }
+
+    const limited = entries.slice(0, 40);
+    setAiSuggestBusy(true);
+    try {
+      const result = await apiRequest<{
+        count: number;
+        suggestions: Array<{ key: string; suggestion: string; reason?: string }>;
+      }>(`/projects/${projectId}/ai/suggestions/batch`, {
+        method: 'POST',
+        auth: true,
+        body: {
+          targetLanguageCode: editorFileMeta.language.code,
+          items: limited.map((entry) => ({
+            key: entry.path,
+            referenceText: entry.value,
+            currentText: entry.value,
+          })),
+        },
+      });
+
+      const suggestionByKey = new Map(
+        result.suggestions
+          .filter((item) => item.key && typeof item.suggestion === 'string')
+          .map((item) => [item.key, item.suggestion]),
+      );
+
+      const nextContent = JSON.parse(JSON.stringify(baseContent)) as Record<string, unknown>;
+      let applied = 0;
+      suggestionByKey.forEach((suggestion, key) => {
+        if (!key) {
+          return;
+        }
+
+        setStringByPath(nextContent, key, suggestion);
+        applied += 1;
+      });
+
+      setEditorSourceContent(nextContent);
+      setEditorVisualEntries(extractStringEntries(nextContent));
+      setEditorJson(JSON.stringify(nextContent, null, 2));
+
+      notify.success(
+        `IA aplicada: ${applied} sugerencia(s)${entries.length > limited.length ? ' (lote parcial)' : ''}`,
+      );
+    } catch {
+      notify.error('No se pudieron obtener sugerencias IA');
+    } finally {
+      setAiSuggestBusy(false);
+    }
+  };
+
   return (
     <>
       <PageHeader
@@ -1159,6 +1239,8 @@ export function ProjectDetailPage() {
                 versions={editorVersions}
                 versionsLoading={editorVersionsLoading}
                 onRestoreVersion={restoreEditorVersion}
+                aiSuggestBusy={aiSuggestBusy}
+                onRequestAiSuggestions={requestAiSuggestions}
               />
             </div>
 

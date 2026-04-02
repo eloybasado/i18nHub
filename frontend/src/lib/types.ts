@@ -65,6 +65,18 @@ export type TranslationFileDetail = TranslationFileSummary & {
   content: Record<string, unknown>;
 };
 
+export type TranslationFileVersionSummary = {
+  id: string;
+  versionNumber: number;
+  createdAt: string;
+  comment?: string | null;
+  createdBy: {
+    id: string;
+    name: string;
+    email: string;
+  };
+};
+
 export type IssueType = 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH';
 
 export type AnalysisIssue = {

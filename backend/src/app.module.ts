@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { AiModule } from './ai/ai.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -22,6 +23,7 @@ import { TranslationFilesModule } from './translation-files/translation-files.mo
     ]),
     PrismaModule,
     AuthModule,
+    AiModule,
     AnalysisModule,
     ProjectsModule,
     LanguagesModule,

@@ -10,13 +10,13 @@ Backend API for i18nHub using NestJS + Prisma + PostgreSQL.
 
 ## Quick Start
 
-1) Install dependencies
+1. Install dependencies
 
 ```bash
 npm install
 ```
 
-2) Start PostgreSQL (from workspace root)
+2. Start PostgreSQL (from workspace root)
 
 ```bash
 cd ..
@@ -24,7 +24,7 @@ docker compose up -d postgres
 cd backend
 ```
 
-3) Create `.env` (if it does not exist)
+3. Create `.env` (if it does not exist)
 
 ```bash
 cp .env.example .env
@@ -39,15 +39,18 @@ JWT_REFRESH_SECRET="dev_refresh_secret_change_me"
 CORS_ORIGIN="http://localhost:5173"
 THROTTLE_TTL="60"
 THROTTLE_LIMIT="120"
+GROQ_API_KEY="your_groq_api_key"
+GROQ_API_URL="https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL="llama-3.1-8b-instant"
 ```
 
-4) Run migrations and generate Prisma client
+4. Run migrations and generate Prisma client
 
 ```bash
 npx prisma migrate dev --name init
 ```
 
-5) Run API
+5. Run API
 
 ```bash
 npm run start:dev

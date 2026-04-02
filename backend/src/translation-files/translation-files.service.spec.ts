@@ -87,9 +87,13 @@ describe('TranslationFilesService', () => {
         name: 'home',
       },
     });
-    prismaMock.translationFileVersion.findFirst = jest.fn().mockResolvedValue(null);
+    prismaMock.translationFileVersion.findFirst = jest
+      .fn()
+      .mockResolvedValue(null);
     prismaMock.translationFileVersion.create = jest.fn().mockResolvedValue({});
-    prismaMock.translationFileVersion.findMany = jest.fn().mockResolvedValue([]);
+    prismaMock.translationFileVersion.findMany = jest
+      .fn()
+      .mockResolvedValue([]);
 
     txMock.fileGroup.upsert.mockImplementation(
       async (args: { where: { projectId_name: { name: string } } }) => ({
@@ -504,7 +508,9 @@ describe('TranslationFilesService', () => {
           title: 'Version antigua',
         },
       });
-    txMock.translationFileVersion.findFirst.mockResolvedValue({ versionNumber: 4 });
+    txMock.translationFileVersion.findFirst.mockResolvedValue({
+      versionNumber: 4,
+    });
 
     await service.restoreVersion('project-1', 'tf-1', 'version-1', {
       sub: 'user-pro',
