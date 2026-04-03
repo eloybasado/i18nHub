@@ -1,6 +1,6 @@
 import { BadGatewayException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AiSuggestionItemOutput } from '../types';
+import { AiGlossaryEntryInput, AiSuggestionItemOutput } from '../types';
 import { LlmProvider } from './llm-provider.interface';
 
 @Injectable()
@@ -9,6 +9,8 @@ export class GroqLlmProvider implements LlmProvider {
 
   async suggestBatch(params: {
     targetLanguageCode: string;
+    context?: string;
+    glossary?: AiGlossaryEntryInput[];
     items: Array<{
       key: string;
       referenceText: string;
@@ -19,13 +21,34 @@ export class GroqLlmProvider implements LlmProvider {
     const endpoint = this.configService.getOrThrow<string>('GROQ_API_URL');
     const model = this.configService.getOrThrow<string>('GROQ_MODEL');
 
+    const normalizedTargetLanguage = params.targetLanguageCode
+      .trim()
+      .toLowerCase();
+    const glossaryForTarget = (params.glossary ?? []).filter((entry) => {
+      if (!entry.languageCodes || entry.languageCodes.length === 0) {
+        return true;
+      }
+
+      return entry.languageCodes.some(
+        (code) => code.trim().toLowerCase() === normalizedTargetLanguage,
+      );
+    });
+
     const prompt = [
       'You are a professional software localization assistant.',
       `Target language code: ${params.targetLanguageCode}`,
+      params.context?.trim()
+        ? `Translation context: ${params.context.trim()}`
+        : null,
+      glossaryForTarget.length > 0
+        ? `Glossary constraints (must be respected): ${JSON.stringify(glossaryForTarget)}`
+        : null,
       'Return ONLY a valid JSON array where each item has: key, suggestion, reason.',
       'Do not add markdown or extra text.',
       `Items: ${JSON.stringify(params.items)}`,
-    ].join('\n');
+    ]
+      .filter(Boolean)
+      .join('\n');
 
     const response = await fetch(endpoint, {
       method: 'POST',

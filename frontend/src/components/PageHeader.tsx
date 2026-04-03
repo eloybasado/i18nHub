@@ -1,4 +1,5 @@
 import { FolderKanban, Languages, LogOut, Menu, UserRound, X } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { session } from '../lib/session';
@@ -7,9 +8,10 @@ import { Button } from './ui/button';
 type Props = {
   title: string;
   subtitle?: string;
+  action?: ReactNode;
 };
 
-export function PageHeader({ title, subtitle }: Props) {
+export function PageHeader({ title, subtitle, action }: Props) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const spacerClassName = menuOpen ? 'mb-5 h-56 sm:h-16' : 'mb-5 h-16';
@@ -67,6 +69,8 @@ export function PageHeader({ title, subtitle }: Props) {
                 Mi perfil
               </NavLink>
             </nav>
+
+            {action ? <div className="hidden sm:flex">{action}</div> : null}
 
             <Button
               type="button"

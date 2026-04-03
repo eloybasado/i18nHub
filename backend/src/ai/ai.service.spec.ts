@@ -57,4 +57,72 @@ describe('AiService', () => {
     });
     expect(result.count).toBe(1);
   });
+
+  it('passes optional context to provider when present', async () => {
+    llmProviderMock.suggestBatch.mockResolvedValue([
+      {
+        key: 'checkout.total',
+        suggestion: 'Total',
+      },
+    ]);
+
+    const user: JwtPayload = {
+      sub: 'user-3',
+      email: 'pro2@test.com',
+      role: GlobalRole.MEMBER,
+      tier: Tier.PRO,
+    };
+
+    await service.suggestTranslations(user, {
+      targetLanguageCode: 'es',
+      context: 'Producto ecommerce B2C, tono cercano',
+      items: [{ key: 'checkout.total', referenceText: 'Total' }],
+    });
+
+    expect(llmProviderMock.suggestBatch).toHaveBeenCalledWith({
+      targetLanguageCode: 'es',
+      context: 'Producto ecommerce B2C, tono cercano',
+      items: [{ key: 'checkout.total', referenceText: 'Total' }],
+    });
+  });
+
+  it('passes glossary entries to provider when present', async () => {
+    llmProviderMock.suggestBatch.mockResolvedValue([
+      {
+        key: 'brand.hero',
+        suggestion: 'Book Hunter',
+      },
+    ]);
+
+    const user: JwtPayload = {
+      sub: 'user-4',
+      email: 'pro3@test.com',
+      role: GlobalRole.MEMBER,
+      tier: Tier.PRO,
+    };
+
+    await service.suggestTranslations(user, {
+      targetLanguageCode: 'es',
+      glossary: [
+        {
+          sourceTerm: 'Book Hunter',
+          targetTerm: 'Book Hunter',
+          languageCodes: ['es', 'fr'],
+        },
+      ],
+      items: [{ key: 'brand.hero', referenceText: 'Book Hunter' }],
+    });
+
+    expect(llmProviderMock.suggestBatch).toHaveBeenCalledWith({
+      targetLanguageCode: 'es',
+      glossary: [
+        {
+          sourceTerm: 'Book Hunter',
+          targetTerm: 'Book Hunter',
+          languageCodes: ['es', 'fr'],
+        },
+      ],
+      items: [{ key: 'brand.hero', referenceText: 'Book Hunter' }],
+    });
+  });
 });

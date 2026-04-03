@@ -111,3 +111,10 @@ export type RunAnalysisResponse = {
     issuesCreated: number;
   }>;
 };
+
+export type AiGlossaryEntry = {
+  id: string;
+  sourceTerm: string;
+  targetTerm: string;
+  languageCodes: string[];
+};

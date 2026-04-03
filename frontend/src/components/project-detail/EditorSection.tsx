@@ -5,22 +5,36 @@ import {
   ChevronRight,
   CircleHelp,
   Download,
-  FileClock,
   FilePenLine,
   Maximize2,
   Minimize2,
-  RotateCcw,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { Language, TranslationFileSummary, TranslationFileVersionSummary } from '../../lib/types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select } from '../ui/select';
+import { AiSuggestionReviewList } from './AiSuggestionReviewList';
+import { VersionHistoryModal } from './VersionHistoryModal';
 
 type EditorVisualEntry = {
   path: string;
   value: string;
 };
+
+type AiSuggestionCandidate = {
+  id: string;
+  key: string;
+  currentText: string;
+  suggestion: string;
+  reason?: string;
+  issueType: 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH';
+  fileGroupName: string;
+  applicableToCurrentFile: boolean;
+  selected: boolean;
+};
+
+type AiSuggestionScope = 'CURRENT_FILE_ISSUES' | 'ALL_FILES_ISSUES' | 'ALL_FILES_BY_TYPE';
 
 type CloneMode = 'EMPTY_STRUCTURE' | 'COPY_CONTENT';
 
@@ -64,6 +78,15 @@ type EditorSectionProps = {
   onRestoreVersion: (versionId: string) => void | Promise<void>;
   aiSuggestBusy: boolean;
   onRequestAiSuggestions: () => void | Promise<void>;
+  aiSuggestions: AiSuggestionCandidate[];
+  aiSuggestionScope: AiSuggestionScope;
+  onAiSuggestionScopeChange: (scope: AiSuggestionScope) => void;
+  aiSuggestionIssueTypeFilter: 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH';
+  onAiSuggestionIssueTypeFilterChange: (type: 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH') => void;
+  onToggleAiSuggestion: (id: string) => void;
+  onSelectAllAiSuggestions: () => void;
+  onClearAiSuggestions: () => void;
+  onApplySelectedAiSuggestions: () => void;
 };
 
 export function EditorSection({
@@ -106,6 +129,15 @@ export function EditorSection({
   onRestoreVersion,
   aiSuggestBusy,
   onRequestAiSuggestions,
+  aiSuggestions,
+  aiSuggestionScope,
+  onAiSuggestionScopeChange,
+  aiSuggestionIssueTypeFilter,
+  onAiSuggestionIssueTypeFilterChange,
+  onToggleAiSuggestion,
+  onSelectAllAiSuggestions,
+  onClearAiSuggestions,
+  onApplySelectedAiSuggestions,
 }: EditorSectionProps) {
   const rawEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [rawExpanded, setRawExpanded] = useState(false);
@@ -221,17 +253,6 @@ export function EditorSection({
         </p>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={!editorFileId || editorBusy || aiSuggestBusy}
-            onClick={() => void onRequestAiSuggestions()}
-          >
-            <Bot size={14} className="mr-1.5" />
-            {aiSuggestBusy ? 'Sugiriendo...' : 'Sugerir IA'}
-          </Button>
-
           {totalIssues > 0 ? (
             <div className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-1.5 py-1">
               <Button
@@ -283,6 +304,13 @@ export function EditorSection({
             {downloadBusy ? 'Generando ZIP...' : 'Exportar ZIP'}
           </Button>
 
+          <VersionHistoryModal
+            versions={versions}
+            versionsLoading={versionsLoading}
+            onRestoreVersion={onRestoreVersion}
+            disabled={!editorFileId || editorBusy}
+          />
+
           <div className="group relative">
             <button
               type="button"
@@ -298,6 +326,59 @@ export function EditorSection({
           </div>
         </div>
       </div>
+
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <div className="min-w-[220px] flex-1">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">Asistente IA</p>
+          <Select
+            value={aiSuggestionScope}
+            onChange={(event) => onAiSuggestionScopeChange(event.target.value as AiSuggestionScope)}
+            disabled={!editorFileId || editorBusy || aiSuggestBusy}
+          >
+            <option value="CURRENT_FILE_ISSUES">Sugerir: issues de este archivo</option>
+            <option value="ALL_FILES_ISSUES">Sugerir: issues de todos los archivos</option>
+            <option value="ALL_FILES_BY_TYPE">Sugerir: por tipo en todos los archivos</option>
+          </Select>
+        </div>
+
+        {aiSuggestionScope === 'ALL_FILES_BY_TYPE' ? (
+          <div className="min-w-[220px] flex-1">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">Filtro tipo</p>
+            <Select
+              value={aiSuggestionIssueTypeFilter}
+              onChange={(event) =>
+                onAiSuggestionIssueTypeFilterChange(
+                  event.target.value as 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH',
+                )
+              }
+              disabled={!editorFileId || editorBusy || aiSuggestBusy}
+            >
+              <option value="MISSING_KEY">Solo missing keys</option>
+              <option value="UNUSED_KEY">Solo unused keys</option>
+              <option value="INTERPOLATION_MISMATCH">Solo interpolation mismatch</option>
+            </Select>
+          </div>
+        ) : null}
+
+        <Button
+          type="button"
+          size="sm"
+          className="metallic-shine-btn"
+          disabled={!editorFileId || editorBusy || aiSuggestBusy}
+          onClick={() => void onRequestAiSuggestions()}
+        >
+          <Bot size={14} className="mr-1.5" />
+          {aiSuggestBusy ? 'Sugiriendo...' : 'Sugerir IA'}
+        </Button>
+      </div>
+
+      <AiSuggestionReviewList
+        aiSuggestions={aiSuggestions}
+        onToggleAiSuggestion={onToggleAiSuggestion}
+        onSelectAllAiSuggestions={onSelectAllAiSuggestions}
+        onClearAiSuggestions={onClearAiSuggestions}
+        onApplySelectedAiSuggestions={onApplySelectedAiSuggestions}
+      />
 
       {editorMode === 'RAW' ? (
         <div className={rawExpanded ? 'fixed inset-x-4 bottom-6 top-24 z-50' : 'mt-3'}>
@@ -397,46 +478,6 @@ export function EditorSection({
       )}
 
       <div className="mt-5 border-t border-zinc-200 pt-4">
-        <p className="mb-1 flex items-center gap-2 text-base font-medium text-zinc-900">
-          <FileClock size={16} />
-          Historial de versiones
-        </p>
-        <p className="text-sm text-zinc-600">
-          Solo disponible para cuentas PRO. Se guarda snapshot automático antes de cada cambio.
-        </p>
-
-        {versionsLoading ? (
-          <p className="mt-2 text-sm text-zinc-500">Cargando versiones...</p>
-        ) : versions.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-500">No hay versiones disponibles para este archivo.</p>
-        ) : (
-          <ul className="mt-2 divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white">
-            {versions.slice(0, 8).map((version) => (
-              <li key={version.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                <div>
-                  <p className="text-sm font-medium text-zinc-900">v{version.versionNumber}</p>
-                  <p className="text-xs text-zinc-500">
-                    {new Date(version.createdAt).toLocaleString('es-ES')} · {version.createdBy.name}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-8 w-8 p-0"
-                  aria-label={`Restaurar versión ${version.versionNumber}`}
-                  title={`Restaurar versión ${version.versionNumber}`}
-                  onClick={() => void onRestoreVersion(version.id)}
-                >
-                  <RotateCcw size={14} />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="mt-5 border-t border-zinc-200 pt-4">
         <p className="text-base font-medium text-zinc-900">Crear/actualizar archivo en otro idioma</p>
         <p className="mt-1 text-sm text-zinc-600">
           Elige destino y tipo de copia. Solo se ejecuta cuando pulses el boton final.
@@ -497,7 +538,7 @@ export function EditorSection({
         </Button>
       </div>
 
-      <div className="mt-5 border-t border-zinc-200" />
+      <div className="mt-5 border-t border-zinc-200 pt-4" />
     </div>
   );
 }

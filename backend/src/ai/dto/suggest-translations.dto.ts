@@ -19,9 +19,32 @@ class SuggestionInputItemDto {
   currentText?: string;
 }
 
+class GlossaryEntryDto {
+  @IsString()
+  sourceTerm!: string;
+
+  @IsString()
+  targetTerm!: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  languageCodes?: string[];
+}
+
 export class SuggestTranslationsDto {
   @IsString()
   targetLanguageCode!: string;
+
+  @IsOptional()
+  @IsString()
+  context?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => GlossaryEntryDto)
+  glossary?: GlossaryEntryDto[];
 
   @IsArray()
   @ArrayMinSize(1)

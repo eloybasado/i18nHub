@@ -1,9 +1,10 @@
 import JSZip from 'jszip';
-import { ArrowLeft, FilePenLine, FileSearch, FileUp, Languages, Star } from 'lucide-react';
+import { ArrowLeft, Bot, FilePenLine, FileSearch, FileUp, Languages, Star } from 'lucide-react';
 import type { ChangeEvent, DragEvent, FormEvent, ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
+import { AiContextSection } from '../components/project-detail/AiContextSection';
 import { AnalysisSection } from '../components/project-detail/AnalysisSection';
 import { EditorSection } from '../components/project-detail/EditorSection';
 import { LanguagesSection } from '../components/project-detail/LanguagesSection';
@@ -23,6 +24,7 @@ import { Input } from '../components/ui/input';
 import { apiRequest } from '../lib/api';
 import { notify } from '../lib/toast';
 import type {
+  AiGlossaryEntry,
   AnalysisReport,
   IngestResponse,
   IssueType,
@@ -38,6 +40,20 @@ type VisualEntry = {
   path: string;
   value: string;
 };
+
+type AiSuggestionCandidate = {
+  id: string;
+  key: string;
+  currentText: string;
+  suggestion: string;
+  reason?: string;
+  issueType: IssueType;
+  fileGroupName: string;
+  applicableToCurrentFile: boolean;
+  selected: boolean;
+};
+
+type AiSuggestionScope = 'CURRENT_FILE_ISSUES' | 'ALL_FILES_ISSUES' | 'ALL_FILES_BY_TYPE';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -131,6 +147,7 @@ const SECTION_ITEMS = [
   { id: 'languages', label: 'Idiomas' },
   { id: 'upload', label: 'Carga' },
   { id: 'editor', label: 'Editor' },
+  { id: 'ai-context', label: 'Contexto IA' },
   { id: 'analysis', label: 'Análisis' },
 ] as const;
 
@@ -142,6 +159,7 @@ const sectionIconById: Record<SectionId, ReactNode> = {
   languages: <Languages size={14} />,
   upload: <FileUp size={14} />,
   editor: <FilePenLine size={14} />,
+  'ai-context': <Bot size={14} />,
   analysis: <FileSearch size={14} />,
 };
 
@@ -176,6 +194,11 @@ export function ProjectDetailPage() {
   const [editorVersions, setEditorVersions] = useState<TranslationFileVersionSummary[]>([]);
   const [editorVersionsLoading, setEditorVersionsLoading] = useState(false);
   const [aiSuggestBusy, setAiSuggestBusy] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestionCandidate[]>([]);
+  const [aiSuggestionScope, setAiSuggestionScope] = useState<AiSuggestionScope>('CURRENT_FILE_ISSUES');
+  const [aiSuggestionIssueTypeFilter, setAiSuggestionIssueTypeFilter] = useState<IssueType>('MISSING_KEY');
+  const [aiContext, setAiContext] = useState('');
+  const [aiGlossaryEntries, setAiGlossaryEntries] = useState<AiGlossaryEntry[]>([]);
   const [editorBusy, setEditorBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [expandedIssueId, setExpandedIssueId] = useState<string | null>(null);
@@ -332,6 +355,7 @@ export function ProjectDetailPage() {
         setEditorTargetLanguageId('');
         setEditorVersions([]);
         setEditorVersionsLoading(false);
+        setAiSuggestions([]);
       }
 
       notify.success('Idioma eliminado correctamente');
@@ -445,6 +469,7 @@ export function ProjectDetailPage() {
       setEditorTargetLanguageId('');
       setEditorCloneMode('EMPTY_STRUCTURE');
       setCloneConfirmOpen(false);
+      setAiSuggestions([]);
 
       setEditorVersionsLoading(true);
       try {
@@ -983,6 +1008,11 @@ export function ProjectDetailPage() {
       return;
     }
 
+    if (!analysisReport) {
+      notify.error('Ejecuta análisis antes de pedir sugerencias IA');
+      return;
+    }
+
     let baseContent: Record<string, unknown>;
     if (editorMode === 'RAW') {
       try {
@@ -1001,12 +1031,56 @@ export function ProjectDetailPage() {
     }
 
     const entries = extractStringEntries(baseContent);
-    if (entries.length === 0) {
-      notify.error('No hay claves de texto para sugerir');
+    const currentByKey = new Map(entries.map((entry) => [entry.path, entry.value]));
+
+    const issueScopeFilter = (issue: AnalysisReport['issues'][number]) => {
+      if (issue.languageId !== editorFileMeta.language.id) {
+        return false;
+      }
+
+      if (aiSuggestionScope === 'CURRENT_FILE_ISSUES') {
+        return reportGroupByReportId[issue.reportId] === editorFileMeta.fileGroup.id;
+      }
+
+      if (aiSuggestionScope === 'ALL_FILES_BY_TYPE') {
+        return issue.type === aiSuggestionIssueTypeFilter;
+      }
+
+      return true;
+    };
+
+    const issueScopedItems = analysisReport.issues
+      .filter(issueScopeFilter)
+      .filter((issue) => issue.type === 'MISSING_KEY' || issue.type === 'INTERPOLATION_MISMATCH')
+      .map((issue) => {
+        const referenceFromIssue =
+          typeof issue.details?.referenceValue === 'string' ? issue.details.referenceValue : '';
+        const fallbackReference = currentByKey.get(issue.key) ?? '';
+        const referenceText = referenceFromIssue || fallbackReference;
+        const issueFileGroupId = reportGroupByReportId[issue.reportId];
+        const issueFileGroupName =
+          reportGroupNameByReportId[issue.reportId] ||
+          (issueFileGroupId === editorFileMeta.fileGroup.id ? editorFileMeta.fileGroup.name : 'Otro grupo');
+
+        return {
+          key: issue.key,
+          referenceText,
+          currentText: currentByKey.get(issue.key) ?? '',
+          issueType: issue.type,
+          fileGroupId: issueFileGroupId,
+          fileGroupName: issueFileGroupName,
+        };
+      })
+      .filter((item) => item.referenceText.trim() !== '');
+
+    const deduped = Array.from(new Map(issueScopedItems.map((item) => [item.key, item])).values());
+
+    if (deduped.length === 0) {
+      notify.error('No hay issues compatibles para sugerencias IA en este archivo');
       return;
     }
 
-    const limited = entries.slice(0, 40);
+    const limited = deduped.slice(0, 40);
     setAiSuggestBusy(true);
     try {
       const result = await apiRequest<{
@@ -1017,37 +1091,48 @@ export function ProjectDetailPage() {
         auth: true,
         body: {
           targetLanguageCode: editorFileMeta.language.code,
-          items: limited.map((entry) => ({
-            key: entry.path,
-            referenceText: entry.value,
-            currentText: entry.value,
+          context: aiContext.trim() || undefined,
+          glossary:
+            aiGlossaryEntries.length > 0
+              ? aiGlossaryEntries.map((entry) => ({
+                  sourceTerm: entry.sourceTerm,
+                  targetTerm: entry.targetTerm,
+                  languageCodes: entry.languageCodes.length > 0 ? entry.languageCodes : undefined,
+                }))
+              : undefined,
+          items: limited.map((item) => ({
+            key: item.key,
+            referenceText: item.referenceText,
+            currentText: item.currentText,
           })),
         },
       });
 
-      const suggestionByKey = new Map(
-        result.suggestions
-          .filter((item) => item.key && typeof item.suggestion === 'string')
-          .map((item) => [item.key, item.suggestion]),
-      );
+      const candidates: AiSuggestionCandidate[] = result.suggestions
+        .filter((item) => item.key && typeof item.suggestion === 'string' && item.suggestion.trim() !== '')
+        .map((item, index) => {
+          const source = limited.find((candidate) => candidate.key === item.key);
+          const sameFileGroup = source?.fileGroupId === editorFileMeta.fileGroup.id;
+          const existsInCurrentFile = currentByKey.has(item.key);
+          const applicableToCurrentFile = sameFileGroup || existsInCurrentFile;
 
-      const nextContent = JSON.parse(JSON.stringify(baseContent)) as Record<string, unknown>;
-      let applied = 0;
-      suggestionByKey.forEach((suggestion, key) => {
-        if (!key) {
-          return;
-        }
+          return {
+            id: `${source?.fileGroupId ?? 'unknown'}:${item.key}:${index}`,
+            key: item.key,
+            currentText: currentByKey.get(item.key) ?? '',
+            suggestion: item.suggestion,
+            reason: item.reason,
+            issueType: source?.issueType ?? 'MISSING_KEY',
+            fileGroupName: source?.fileGroupName ?? 'Otro grupo',
+            applicableToCurrentFile,
+            selected: applicableToCurrentFile,
+          };
+        });
 
-        setStringByPath(nextContent, key, suggestion);
-        applied += 1;
-      });
-
-      setEditorSourceContent(nextContent);
-      setEditorVisualEntries(extractStringEntries(nextContent));
-      setEditorJson(JSON.stringify(nextContent, null, 2));
+      setAiSuggestions(candidates);
 
       notify.success(
-        `IA aplicada: ${applied} sugerencia(s)${entries.length > limited.length ? ' (lote parcial)' : ''}`,
+        `IA lista para revisión: ${candidates.length} sugerencia(s)${deduped.length > limited.length ? ' (lote parcial)' : ''}`,
       );
     } catch {
       notify.error('No se pudieron obtener sugerencias IA');
@@ -1056,28 +1141,81 @@ export function ProjectDetailPage() {
     }
   };
 
+  const toggleAiSuggestion = (id: string) => {
+    setAiSuggestions((prev) => prev.map((item) => (item.id === id ? { ...item, selected: !item.selected } : item)));
+  };
+
+  const selectAllAiSuggestions = () => {
+    setAiSuggestions((prev) => prev.map((item) => ({ ...item, selected: true })));
+  };
+
+  const clearAiSuggestions = () => {
+    setAiSuggestions([]);
+  };
+
+  const applySelectedAiSuggestions = () => {
+    if (aiSuggestions.length === 0) {
+      notify.error('No hay sugerencias IA para aplicar');
+      return;
+    }
+
+    let baseContent: Record<string, unknown>;
+    if (editorMode === 'RAW') {
+      try {
+        baseContent = JSON.parse(editorJson) as Record<string, unknown>;
+      } catch {
+        notify.error('El JSON RAW no es válido. Corrígelo antes de aplicar sugerencias.');
+        return;
+      }
+    } else {
+      if (!editorSourceContent) {
+        notify.error('No hay contenido base para aplicar sugerencias');
+        return;
+      }
+
+      baseContent = buildVisualContent(editorSourceContent, editorVisualEntries);
+    }
+
+    const nextContent = JSON.parse(JSON.stringify(baseContent)) as Record<string, unknown>;
+    const selected = aiSuggestions.filter((item) => item.selected && item.applicableToCurrentFile);
+
+    if (selected.length === 0) {
+      notify.error('No hay sugerencias aplicables seleccionadas');
+      return;
+    }
+
+    selected.forEach((item) => {
+      setStringByPath(nextContent, item.key, item.suggestion);
+    });
+
+    setEditorSourceContent(nextContent);
+    setEditorVisualEntries(extractStringEntries(nextContent));
+    setEditorJson(JSON.stringify(nextContent, null, 2));
+    setAiSuggestions([]);
+    notify.success(`Sugerencias aplicadas: ${selected.length}`);
+  };
+
   return (
     <>
       <PageHeader
         title={project ? project.name : 'Proyecto'}
         subtitle="Gestión de idiomas y carga inicial de traducciones"
+        action={
+          <Button type="button" variant="outline" size="sm" onClick={() => navigate('/projects')}>
+            <ArrowLeft size={14} className="mr-1" />
+            Volver a proyectos
+          </Button>
+        }
       />
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-24 md:px-6 lg:pb-6">
-        <div className="mb-3 lg:pl-72">
-          <Button type="button" variant="outline" size="sm" onClick={() => navigate('/projects')}>
-            <ArrowLeft size={14} className="sm:mr-1" />
-            <span className="hidden sm:inline">Volver a proyectos</span>
-          </Button>
-        </div>
-
         {error ? (
           <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
         ) : null}
 
         <div className="lg:hidden">
           <div className="fixed bottom-3 left-1/2 z-30 w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-2xl border border-zinc-200 bg-white/95 p-1.5 shadow-lg backdrop-blur">
-            <nav className="grid grid-cols-5 gap-1">
+            <nav className="grid grid-cols-3 gap-1">
               {SECTION_ITEMS.map((section) => {
                 const isActive = activeSection === section.id;
 
@@ -1209,6 +1347,7 @@ export function ProjectDetailPage() {
                   setEditorCloneMode('EMPTY_STRUCTURE');
                   setEditorVersions([]);
                   setEditorVersionsLoading(false);
+                  setAiSuggestions([]);
                   setCloneConfirmOpen(false);
                 }}
                 onChangeEditorMode={onChangeEditorMode}
@@ -1241,6 +1380,41 @@ export function ProjectDetailPage() {
                 onRestoreVersion={restoreEditorVersion}
                 aiSuggestBusy={aiSuggestBusy}
                 onRequestAiSuggestions={requestAiSuggestions}
+                aiSuggestions={aiSuggestions}
+                aiSuggestionScope={aiSuggestionScope}
+                onAiSuggestionScopeChange={setAiSuggestionScope}
+                aiSuggestionIssueTypeFilter={aiSuggestionIssueTypeFilter}
+                onAiSuggestionIssueTypeFilterChange={setAiSuggestionIssueTypeFilter}
+                onToggleAiSuggestion={toggleAiSuggestion}
+                onSelectAllAiSuggestions={selectAllAiSuggestions}
+                onClearAiSuggestions={clearAiSuggestions}
+                onApplySelectedAiSuggestions={applySelectedAiSuggestions}
+              />
+            </div>
+
+            <div className={`${activeSection === 'ai-context' ? 'block' : 'hidden'} mt-2`}>
+              <AiContextSection
+                aiContext={aiContext}
+                onAiContextChange={setAiContext}
+                languages={languages}
+                glossaryEntries={aiGlossaryEntries}
+                onAddGlossaryEntry={(entry) => {
+                  setAiGlossaryEntries((previous) => [
+                    ...previous,
+                    {
+                      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                      ...entry,
+                    },
+                  ]);
+                }}
+                onUpdateGlossaryEntry={(id, patch) => {
+                  setAiGlossaryEntries((previous) =>
+                    previous.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)),
+                  );
+                }}
+                onRemoveGlossaryEntry={(id) => {
+                  setAiGlossaryEntries((previous) => previous.filter((entry) => entry.id !== id));
+                }}
               />
             </div>
 

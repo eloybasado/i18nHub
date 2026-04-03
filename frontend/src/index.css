@@ -58,6 +58,60 @@
 }
 
 @layer components {
+  @keyframes metallicSweep {
+    0% {
+      transform: translateX(-125%);
+      opacity: 0;
+    }
+    25% {
+      opacity: 0.9;
+    }
+    55% {
+      transform: translateX(125%);
+      opacity: 0;
+    }
+    100% {
+      transform: translateX(125%);
+      opacity: 0;
+    }
+  }
+
+  .metallic-shine-btn {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #0f172a;
+    background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.24);
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      background-color 0.2s ease;
+  }
+
+  .metallic-shine-btn::before {
+    content: '';
+    position: absolute;
+    inset: -20% -45%;
+    width: 55%;
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
+    transform: translateX(-125%);
+    animation: metallicSweep 2.4s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .metallic-shine-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.32);
+    background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+  }
+
+  .metallic-shine-btn:disabled {
+    transform: none;
+    box-shadow: none;
+    opacity: 0.6;
+  }
+
   .sonner-toast {
     border: 1px solid #d4d4d8;
     border-radius: 12px;

@@ -21,6 +21,10 @@ export class AiService {
 
     const suggestions = await this.llmProvider.suggestBatch({
       targetLanguageCode: dto.targetLanguageCode,
+      ...(dto.context?.trim() ? { context: dto.context.trim() } : {}),
+      ...(dto.glossary && dto.glossary.length > 0
+        ? { glossary: dto.glossary }
+        : {}),
       items: dto.items,
     });
 
