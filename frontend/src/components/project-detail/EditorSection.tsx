@@ -1,20 +1,28 @@
 import {
   Archive,
   Bot,
-  ChevronLeft,
-  ChevronRight,
+  Braces,
   CircleHelp,
   Download,
   FilePenLine,
+  FileSearch,
+  Files,
+  ListFilter,
   Maximize2,
   Minimize2,
+  Search,
+  SearchCheck,
+  TriangleAlert,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { Language, TranslationFileSummary, TranslationFileVersionSummary } from '../../lib/types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Select } from '../ui/select';
+import { SelectModal, type SelectModalOption } from '../ui/select-modal';
 import { AiSuggestionReviewList } from './AiSuggestionReviewList';
+import { CloneToLanguageWizardModal } from './CloneToLanguageWizardModal';
+import { EditorFilePickerModal } from './EditorFilePickerModal';
+import { IssuePager } from './IssuePager';
 import { VersionHistoryModal } from './VersionHistoryModal';
 
 type EditorVisualEntry = {
@@ -36,7 +44,51 @@ type AiSuggestionCandidate = {
 
 type AiSuggestionScope = 'CURRENT_FILE_ISSUES' | 'ALL_FILES_ISSUES' | 'ALL_FILES_BY_TYPE';
 
+type AiSuggestionIssueType = 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH';
+
 type CloneMode = 'EMPTY_STRUCTURE' | 'COPY_CONTENT';
+
+const AI_SUGGESTION_SCOPE_OPTIONS: SelectModalOption<AiSuggestionScope>[] = [
+  {
+    value: 'CURRENT_FILE_ISSUES',
+    label: 'Issues del archivo actual',
+    description: 'Genera sugerencias solo para el archivo que estas editando ahora.',
+    icon: FileSearch,
+  },
+  {
+    value: 'ALL_FILES_ISSUES',
+    label: 'Issues de todos los archivos',
+    description: 'Recorre el proyecto completo y prepara sugerencias de cada archivo con issues.',
+    icon: Files,
+  },
+  {
+    value: 'ALL_FILES_BY_TYPE',
+    label: 'Por tipo de issue en todo el proyecto',
+    description: 'Filtra por un tipo concreto de issue y genera sugerencias mas dirigidas.',
+    icon: ListFilter,
+  },
+];
+
+const AI_SUGGESTION_ISSUE_TYPE_OPTIONS: SelectModalOption<AiSuggestionIssueType>[] = [
+  {
+    value: 'MISSING_KEY',
+    label: 'Missing keys',
+    description: 'Busca claves que faltan y propone traducciones nuevas.',
+    icon: SearchCheck,
+  },
+  {
+    value: 'UNUSED_KEY',
+    label: 'Unused keys',
+    description: 'Detecta claves sobrantes respecto al idioma de referencia.',
+    icon: TriangleAlert,
+  },
+  {
+    value: 'INTERPOLATION_MISMATCH',
+    label: 'Interpolation mismatch',
+    description: 'Revisa diferencias en variables como {name} o {count}.',
+    icon: Braces,
+  },
+];
 
 type EditorSectionProps = {
   translationFiles: TranslationFileSummary[];
@@ -81,8 +133,8 @@ type EditorSectionProps = {
   aiSuggestions: AiSuggestionCandidate[];
   aiSuggestionScope: AiSuggestionScope;
   onAiSuggestionScopeChange: (scope: AiSuggestionScope) => void;
-  aiSuggestionIssueTypeFilter: 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH';
-  onAiSuggestionIssueTypeFilterChange: (type: 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH') => void;
+  aiSuggestionIssueTypeFilter: AiSuggestionIssueType;
+  onAiSuggestionIssueTypeFilterChange: (type: AiSuggestionIssueType) => void;
   onToggleAiSuggestion: (id: string) => void;
   onSelectAllAiSuggestions: () => void;
   onClearAiSuggestions: () => void;
@@ -141,6 +193,7 @@ export function EditorSection({
 }: EditorSectionProps) {
   const rawEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [rawExpanded, setRawExpanded] = useState(false);
+  const [visualSearchInput, setVisualSearchInput] = useState(editorVisualQuery);
   const visualHighlightFocusedPathRef = useRef<string | null>(null);
   const rawHighlightInteractedRef = useRef(false);
 
@@ -151,7 +204,7 @@ export function EditorSection({
 
     const element = document.getElementById(`visual-entry-${highlightedVisualPath}`);
     if (element) {
-      element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
     }
   }, [highlightedVisualPath, filteredVisualEntries.length]);
 
@@ -164,11 +217,25 @@ export function EditorSection({
     const lines = editorJson.split('\n');
     const lineIndex = Math.max(0, Math.min(highlightedRawLine - 1, lines.length - 1));
     const charStart = lines.slice(0, lineIndex).reduce((sum, line) => sum + line.length + 1, 0);
-    const charEnd = charStart + (lines[lineIndex]?.length ?? 0);
-
     textarea.focus();
-    textarea.setSelectionRange(charStart, charEnd);
+    textarea.setSelectionRange(charStart, charStart);
   }, [highlightedRawLine, editorJson]);
+
+  useEffect(() => {
+    setVisualSearchInput(editorVisualQuery);
+  }, [editorVisualQuery]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (visualSearchInput !== editorVisualQuery) {
+        onEditorVisualQueryChange(visualSearchInput);
+      }
+    }, 220);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [visualSearchInput, editorVisualQuery, onEditorVisualQueryChange]);
 
   return (
     <div className="mt-2">
@@ -181,38 +248,28 @@ export function EditorSection({
         Abre un archivo cargado, edita su JSON y guarda cambios para corregir issues o preparar nuevas traducciones.
       </p>
 
-      <div className="mt-3 grid gap-3 md:grid-cols-3">
-        <div className="border-l-2 border-zinc-300 pl-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Paso 1</p>
-          <p className="mt-1 text-sm font-medium text-zinc-900">Selecciona archivo</p>
-          <Select
-            containerClassName="mt-2"
-            value={editorFileId ?? ''}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (!value) {
-                onResetEditorSelection();
-                return;
-              }
-              onSelectEditorFile(value);
-            }}
-          >
-            <option value="">Selecciona un archivo para editar</option>
-            {translationFiles.map((file) => (
-              <option key={file.id} value={file.id}>
-                {file.fileGroup.name} · {file.language.code} · {file.filename}
-              </option>
-            ))}
-          </Select>
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Paso 1</p>
+          <p className="mt-1 text-sm font-semibold text-zinc-900">Selecciona archivo</p>
+          <p className="mt-1 text-xs text-zinc-500">Abre el archivo con el que vas a trabajar.</p>
+          <EditorFilePickerModal
+            translationFiles={translationFiles}
+            selectedFileId={editorFileId}
+            onSelectFile={onSelectEditorFile}
+            onClearSelection={onResetEditorSelection}
+            disabled={editorBusy}
+          />
         </div>
 
-        <div className="border-l-2 border-zinc-300 pl-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Paso 2</p>
-          <p className="mt-1 text-sm font-medium text-zinc-900">Modo de edición</p>
-          <div className="mt-2 inline-flex rounded-md border border-zinc-300 bg-white p-1">
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Paso 2</p>
+          <p className="mt-1 text-sm font-semibold text-zinc-900">Modo de edición</p>
+          <p className="mt-1 text-xs text-zinc-500">Elige entre edición RAW o visual.</p>
+          <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-1.5">
             <button
               type="button"
-              className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`rounded px-3 py-2 text-sm font-medium transition-colors ${
                 editorMode === 'RAW' ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
               }`}
               onClick={() => onChangeEditorMode('RAW')}
@@ -221,7 +278,7 @@ export function EditorSection({
             </button>
             <button
               type="button"
-              className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`rounded px-3 py-2 text-sm font-medium transition-colors ${
                 editorMode === 'VISUAL' ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
               }`}
               onClick={() => onChangeEditorMode('VISUAL')}
@@ -231,11 +288,12 @@ export function EditorSection({
           </div>
         </div>
 
-        <div className="border-l-2 border-zinc-300 pl-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Paso 3</p>
-          <p className="mt-1 text-sm font-medium text-zinc-900">Guardar cambios</p>
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Paso 3</p>
+          <p className="mt-1 text-sm font-semibold text-zinc-900">Guardar cambios</p>
+          <p className="mt-1 text-xs text-zinc-500">Persistir cambios en el archivo seleccionado.</p>
           <Button
-            className="mt-2 w-full"
+            className="mt-3 w-full"
             type="button"
             onClick={onSaveEditorFile}
             disabled={!editorFileId || editorBusy}
@@ -253,39 +311,16 @@ export function EditorSection({
         </p>
 
         <div className="flex flex-wrap items-center gap-2">
-          {totalIssues > 0 ? (
-            <div className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-1.5 py-1">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8 w-8 p-0"
-                aria-label="Issue anterior"
-                title="Issue anterior"
-                onClick={onGoToPreviousIssue}
-              >
-                <ChevronLeft size={14} />
-              </Button>
-              <span className="min-w-16 text-center text-xs text-zinc-600">
-                {currentIssueIndex >= 0 ? `${currentIssueIndex + 1}/${totalIssues}` : `0/${totalIssues}`}
-              </span>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8 w-8 p-0"
-                aria-label="Issue siguiente"
-                title="Issue siguiente"
-                onClick={onGoToNextIssue}
-              >
-                <ChevronRight size={14} />
-              </Button>
-            </div>
-          ) : null}
+          <IssuePager
+            currentIssueIndex={currentIssueIndex}
+            totalIssues={totalIssues}
+            onGoToPreviousIssue={onGoToPreviousIssue}
+            onGoToNextIssue={onGoToNextIssue}
+          />
 
           <Button
             type="button"
-            className="border-sky-700 bg-sky-600 text-white shadow-sm hover:bg-sky-700"
+            className="border-amber-300 bg-amber-100 text-amber-900 shadow-sm hover:bg-amber-200"
             size="sm"
             disabled={!editorFileId || editorBusy}
             onClick={onDownloadCurrentEditedFile}
@@ -295,7 +330,7 @@ export function EditorSection({
           </Button>
           <Button
             type="button"
-            className="border-emerald-700 bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
+            className="border-rose-300 bg-rose-100 text-rose-900 shadow-sm hover:bg-rose-200"
             size="sm"
             disabled={downloadBusy || translationFiles.length === 0}
             onClick={() => void onDownloadProjectZip()}
@@ -330,40 +365,37 @@ export function EditorSection({
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <div className="min-w-[220px] flex-1">
           <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">Asistente IA</p>
-          <Select
+          <SelectModal
             value={aiSuggestionScope}
-            onChange={(event) => onAiSuggestionScopeChange(event.target.value as AiSuggestionScope)}
+            options={AI_SUGGESTION_SCOPE_OPTIONS}
+            onChange={onAiSuggestionScopeChange}
+            title="Asistente IA"
+            description="Elige el alcance de las sugerencias antes de ejecutar la IA."
+            placeholder="Selecciona un alcance"
+            gridClassName="grid-cols-1"
             disabled={!editorFileId || editorBusy || aiSuggestBusy}
-          >
-            <option value="CURRENT_FILE_ISSUES">Sugerir: issues de este archivo</option>
-            <option value="ALL_FILES_ISSUES">Sugerir: issues de todos los archivos</option>
-            <option value="ALL_FILES_BY_TYPE">Sugerir: por tipo en todos los archivos</option>
-          </Select>
+          />
         </div>
 
         {aiSuggestionScope === 'ALL_FILES_BY_TYPE' ? (
           <div className="min-w-[220px] flex-1">
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">Filtro tipo</p>
-            <Select
+            <SelectModal
               value={aiSuggestionIssueTypeFilter}
-              onChange={(event) =>
-                onAiSuggestionIssueTypeFilterChange(
-                  event.target.value as 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH',
-                )
-              }
+              options={AI_SUGGESTION_ISSUE_TYPE_OPTIONS}
+              onChange={onAiSuggestionIssueTypeFilterChange}
+              title="Tipo de issue para IA"
+              description="Filtra el tipo de issue sobre el que quieres generar sugerencias."
+              placeholder="Selecciona un tipo"
+              gridClassName="grid-cols-1"
               disabled={!editorFileId || editorBusy || aiSuggestBusy}
-            >
-              <option value="MISSING_KEY">Solo missing keys</option>
-              <option value="UNUSED_KEY">Solo unused keys</option>
-              <option value="INTERPOLATION_MISMATCH">Solo interpolation mismatch</option>
-            </Select>
+            />
           </div>
         ) : null}
 
         <Button
           type="button"
-          size="sm"
-          className="metallic-shine-btn"
+          className="metallic-shine-btn h-10 self-end"
           disabled={!editorFileId || editorBusy || aiSuggestBusy}
           onClick={() => void onRequestAiSuggestions()}
         >
@@ -381,52 +413,119 @@ export function EditorSection({
       />
 
       {editorMode === 'RAW' ? (
-        <div className={rawExpanded ? 'fixed inset-x-4 bottom-6 top-24 z-50' : 'mt-3'}>
-          <div className="mb-2 flex items-center justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setRawExpanded((previous) => !previous)}
-              disabled={!editorFileId}
-            >
-              {rawExpanded ? <Minimize2 size={14} className="mr-1" /> : <Maximize2 size={14} className="mr-1" />}
-              {rawExpanded ? 'Salir de ampliado' : 'Modo ampliado'}
-            </Button>
-          </div>
+        rawExpanded ? (
+          <div className="fixed inset-0 z-50 bg-white">
+            <div className="flex h-full w-full flex-col bg-white px-4 py-4 sm:px-6 sm:py-5">
+              <textarea
+                ref={rawEditorRef}
+                className={`min-h-0 w-full flex-1 rounded-lg border bg-white p-3 font-mono text-sm text-zinc-900 outline-none focus:border-zinc-500 ${
+                  highlightedRawLine ? 'border-amber-300 ring-2 ring-amber-100' : 'border-zinc-300'
+                }`}
+                value={editorJson}
+                onChange={(event) => onEditorJsonChange(event.target.value)}
+                onFocus={() => {
+                  if (highlightedRawLine) {
+                    rawHighlightInteractedRef.current = true;
+                  }
+                }}
+                onBlur={() => {
+                  if (rawHighlightInteractedRef.current) {
+                    rawHighlightInteractedRef.current = false;
+                    onDismissHighlightedRawLine();
+                  }
+                }}
+                placeholder="Abre un archivo para empezar a editar su JSON..."
+                disabled={!editorFileId}
+              />
 
-          <textarea
-            ref={rawEditorRef}
-            className={`w-full rounded-lg border bg-white p-3 font-mono text-sm text-zinc-900 outline-none focus:border-zinc-500 ${
-              rawExpanded ? 'h-[calc(100%-2.5rem)]' : 'min-h-[320px]'
-            } ${highlightedRawLine ? 'border-sky-400 ring-1 ring-sky-300' : 'border-zinc-300'}`}
-            value={editorJson}
-            onChange={(event) => onEditorJsonChange(event.target.value)}
-            onFocus={() => {
-              if (highlightedRawLine) {
-                rawHighlightInteractedRef.current = true;
-              }
-            }}
-            onBlur={() => {
-              if (rawHighlightInteractedRef.current) {
-                rawHighlightInteractedRef.current = false;
-                onDismissHighlightedRawLine();
-              }
-            }}
-            placeholder="Abre un archivo para empezar a editar su JSON..."
-            disabled={!editorFileId}
-          />
-        </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 pt-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    className="border-amber-300 bg-amber-100 text-amber-900 shadow-sm hover:bg-amber-200"
+                    size="sm"
+                    disabled={!editorFileId || editorBusy}
+                    onClick={onDownloadCurrentEditedFile}
+                  >
+                    <Download size={14} className="mr-1.5" />
+                    Exportar JSON
+                  </Button>
+
+                  <VersionHistoryModal
+                    versions={versions}
+                    versionsLoading={versionsLoading}
+                    onRestoreVersion={onRestoreVersion}
+                    disabled={!editorFileId || editorBusy}
+                  />
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRawExpanded(false)}
+                  disabled={!editorFileId}
+                >
+                  <Minimize2 size={14} className="mr-1" />
+                  Salir de ampliado
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3">
+            <textarea
+              ref={rawEditorRef}
+              className={`w-full rounded-lg border bg-white p-3 font-mono text-sm text-zinc-900 outline-none focus:border-zinc-500 min-h-[320px] ${
+                highlightedRawLine ? 'border-amber-300 ring-2 ring-amber-100' : 'border-zinc-300'
+              }`}
+              value={editorJson}
+              onChange={(event) => onEditorJsonChange(event.target.value)}
+              onFocus={() => {
+                if (highlightedRawLine) {
+                  rawHighlightInteractedRef.current = true;
+                }
+              }}
+              onBlur={() => {
+                if (rawHighlightInteractedRef.current) {
+                  rawHighlightInteractedRef.current = false;
+                  onDismissHighlightedRawLine();
+                }
+              }}
+              placeholder="Abre un archivo para empezar a editar su JSON..."
+              disabled={!editorFileId}
+            />
+
+            <div className="mt-2 text-right">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setRawExpanded(true)}
+                disabled={!editorFileId}
+              >
+                <Maximize2 size={14} className="mr-1" />
+                Modo ampliado
+              </Button>
+            </div>
+          </div>
+        )
       ) : (
         <div className="mt-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Input
-              className="max-w-xl"
-              value={editorVisualQuery}
-              onChange={(event) => onEditorVisualQueryChange(event.target.value)}
-              placeholder="Buscar por clave o texto..."
-              disabled={!editorFileId}
-            />
+            <div className="relative w-full max-w-xl">
+              <Search
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+              />
+              <Input
+                className="pl-9"
+                value={visualSearchInput}
+                onChange={(event) => setVisualSearchInput(event.target.value)}
+                placeholder="Buscar por clave o texto..."
+                disabled={!editorFileId}
+              />
+            </div>
             <span className="rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600">
               {filteredVisualEntries.length} campos
             </span>
@@ -446,7 +545,7 @@ export function EditorSection({
                     key={entry.path}
                     id={`visual-entry-${entry.path}`}
                     className={`block rounded-md border-b border-zinc-200 pb-4 ${
-                      highlightedVisualPath === entry.path ? 'border-l-4 border-l-sky-500 bg-sky-50/60 px-2' : ''
+                      highlightedVisualPath === entry.path ? 'border-l-4 border-l-amber-400 bg-amber-50/70 px-2' : ''
                     }`}
                   >
                     <span className="inline-flex rounded bg-zinc-100 px-2 py-1 font-mono text-sm font-semibold text-zinc-800">
@@ -480,62 +579,21 @@ export function EditorSection({
       <div className="mt-5 border-t border-zinc-200 pt-4">
         <p className="text-base font-medium text-zinc-900">Crear/actualizar archivo en otro idioma</p>
         <p className="mt-1 text-sm text-zinc-600">
-          Elige destino y tipo de copia. Solo se ejecuta cuando pulses el boton final.
+          Usa el asistente para elegir idioma destino y tipo de copia con explicación paso a paso.
         </p>
 
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm text-zinc-600">Idioma destino</label>
-            <Select
-              value={editorTargetLanguageId}
-              onChange={(event) => onTargetLanguageChange(event.target.value)}
-              disabled={!editorFileId || editorTargetLanguageOptions.length === 0}
-            >
-              <option value="">Selecciona idioma destino</option>
-              {editorTargetLanguageOptions.map((language) => (
-                <option key={language.id} value={language.id}>
-                  {language.name} ({language.code})
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm text-zinc-600">Tipo de accion</label>
-            <Select
-              value={editorCloneMode}
-              onChange={(event) => onCloneModeChange(event.target.value as CloneMode)}
-              disabled={!editorFileId}
-            >
-              <option value="EMPTY_STRUCTURE">Crear estructura vacia (seguro)</option>
-              <option value="COPY_CONTENT">Copiar contenido actual (sobrescribe destino)</option>
-            </Select>
-          </div>
-        </div>
-
-        <p className="mt-2 text-sm text-zinc-600">
-          {editorCloneMode === 'EMPTY_STRUCTURE'
-            ? 'Se crea la misma estructura de claves y se vacian los textos del idioma destino.'
-            : 'Se copian las traducciones actuales tal cual al idioma destino y puede sobrescribir su contenido.'}
-        </p>
-
-        <Button
-          type="button"
-          className="mt-3"
-          variant={editorCloneMode === 'EMPTY_STRUCTURE' ? 'outline' : 'default'}
-          disabled={!editorFileId || editorBusy || !editorTargetLanguageId}
-          onClick={() => {
-            if (editorCloneMode === 'COPY_CONTENT') {
-              onRequestCopyContent();
-              return;
-            }
-            onCloneEmptyStructure();
-          }}
-        >
-          {editorCloneMode === 'EMPTY_STRUCTURE'
-            ? `Crear estructura vacia${selectedTargetLanguage ? ` en ${selectedTargetLanguage.code}` : ''}`
-            : `Copiar contenido${selectedTargetLanguage ? ` en ${selectedTargetLanguage.code}` : ''}`}
-        </Button>
+        <CloneToLanguageWizardModal
+          disabled={!editorFileId}
+          editorBusy={editorBusy}
+          editorTargetLanguageId={editorTargetLanguageId}
+          editorTargetLanguageOptions={editorTargetLanguageOptions}
+          editorCloneMode={editorCloneMode}
+          selectedTargetLanguage={selectedTargetLanguage}
+          onTargetLanguageChange={onTargetLanguageChange}
+          onCloneModeChange={onCloneModeChange}
+          onCloneEmptyStructure={onCloneEmptyStructure}
+          onRequestCopyContent={onRequestCopyContent}
+        />
       </div>
 
       <div className="mt-5 border-t border-zinc-200 pt-4" />

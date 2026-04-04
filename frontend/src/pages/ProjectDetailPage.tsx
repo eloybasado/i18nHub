@@ -22,6 +22,7 @@ import {
 } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { apiRequest } from '../lib/api';
+import { session } from '../lib/session';
 import { notify } from '../lib/toast';
 import type {
   AiGlossaryEntry,
@@ -211,6 +212,28 @@ export function ProjectDetailPage() {
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [proModalOpen, setProModalOpen] = useState(false);
+
+  const getCurrentUserTier = (): 'FREE' | 'PRO' | null => {
+    const token = session.getAccessToken();
+    if (!token) {
+      return null;
+    }
+
+    try {
+      const payloadBase64 = token.split('.')[1];
+      if (!payloadBase64) {
+        return null;
+      }
+
+      const normalized = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+      const decoded = JSON.parse(atob(padded)) as { tier?: 'FREE' | 'PRO' };
+      return decoded.tier ?? null;
+    } catch {
+      return null;
+    }
+  };
 
   const parseFilesForIngest = async (files: File[]) => {
     try {
@@ -450,8 +473,16 @@ export function ProjectDetailPage() {
     }
   };
 
-  const openEditorForFile = async (translationFileId: string) => {
+  const openEditorForFile = async (
+    translationFileId: string,
+    options?: {
+      initialVisualQuery?: string;
+      skipNotify?: boolean;
+    },
+  ) => {
     if (!projectId) return;
+
+    const initialVisualQuery = options?.initialVisualQuery ?? '';
 
     setEditorBusy(true);
     try {
@@ -463,8 +494,7 @@ export function ProjectDetailPage() {
       setEditorFileMeta(file);
       setEditorSourceContent(file.content);
       setEditorVisualEntries(extractStringEntries(file.content));
-      setEditorVisualQuery('');
-      setEditorMode('RAW');
+      setEditorVisualQuery(initialVisualQuery);
       setEditorJson(JSON.stringify(file.content, null, 2));
       setEditorTargetLanguageId('');
       setEditorCloneMode('EMPTY_STRUCTURE');
@@ -484,7 +514,9 @@ export function ProjectDetailPage() {
         setEditorVersionsLoading(false);
       }
 
-      notify.success(`Archivo abierto en editor: ${file.filename}`);
+      if (!options?.skipNotify) {
+        notify.success(`Archivo abierto en editor: ${file.filename}`);
+      }
       return file;
     } catch {
       notify.error('No se pudo cargar el archivo en el editor');
@@ -517,22 +549,6 @@ export function ProjectDetailPage() {
     }
 
     return null;
-  };
-
-  const findJsonLineForPath = (jsonText: string, path: string): number | null => {
-    const segments = path.split('.').filter(Boolean);
-    if (segments.length === 0) {
-      return null;
-    }
-
-    const keyToken = `"${segments[segments.length - 1]}"`;
-    const lines = jsonText.split('\n');
-    const foundIndex = lines.findIndex((line) => line.includes(keyToken));
-    if (foundIndex < 0) {
-      return null;
-    }
-
-    return foundIndex + 1;
   };
 
   const saveEditorFile = async () => {
@@ -906,39 +922,53 @@ export function ProjectDetailPage() {
       return;
     }
 
-    const opened = await openEditorForFile(targetFile.id);
-    if (!opened) {
-      return;
+    // Keep editor in VISUAL during issue navigation to avoid mode flicker.
+    setEditorMode('VISUAL');
+    setHighlightedRawLine(null);
+    setEditorVisualQuery(issue.key);
+
+    let openedContent: Record<string, unknown> | null = null;
+
+    if (editorFileId === targetFile.id) {
+      if (editorMode === 'RAW') {
+        try {
+          openedContent = JSON.parse(editorJson) as Record<string, unknown>;
+        } catch {
+          openedContent = editorSourceContent;
+        }
+      } else if (editorSourceContent) {
+        openedContent = buildVisualContent(editorSourceContent, editorVisualEntries);
+      }
     }
 
-    const entryPaths = extractStringEntries(opened.content).map((entry) => entry.path);
+    if (!openedContent) {
+      const opened = await openEditorForFile(targetFile.id, {
+        initialVisualQuery: issue.key,
+        skipNotify: true,
+      });
+      if (!opened) {
+        return;
+      }
+
+      openedContent = opened.content;
+    }
+
+    const entryPaths = extractStringEntries(openedContent).map((entry) => entry.path);
     const matchedPath = findBestMatchingPath(issue.key, entryPaths);
 
     if (matchedPath) {
-      setEditorMode('VISUAL');
       setEditorVisualQuery(matchedPath);
-      setHighlightedIssuePath(null);
-      setTimeout(() => setHighlightedIssuePath(matchedPath), 0);
-      setHighlightedRawLine(null);
-    } else if (issue.type === 'MISSING_KEY') {
-      setEditorMode('VISUAL');
+      setHighlightedIssuePath(matchedPath);
+    } else {
       setEditorVisualQuery(issue.key);
       setHighlightedIssuePath(null);
-      setHighlightedRawLine(null);
-    } else {
-      const jsonText = JSON.stringify(opened.content, null, 2);
-      const approxLine = findJsonLineForPath(jsonText, issue.key);
-      setEditorMode('RAW');
-      setEditorVisualQuery('');
-      setHighlightedIssuePath(null);
-      setHighlightedRawLine(approxLine);
     }
 
     setActiveSection('editor');
     notify.success(
       matchedPath
         ? `Abierto ${targetFile.filename} y foco en ${matchedPath}`
-        : `Abierto ${targetFile.filename} en modo RAW para revisar ${issue.key}`,
+        : `Abierto ${targetFile.filename} y filtro aplicado para ${issue.key}`,
     );
   };
 
@@ -1003,6 +1033,11 @@ export function ProjectDetailPage() {
   };
 
   const requestAiSuggestions = async () => {
+    if (getCurrentUserTier() === 'FREE') {
+      setProModalOpen(true);
+      return;
+    }
+
     if (!projectId || !editorFileMeta) {
       notify.error('Abre un archivo en el editor antes de pedir sugerencias IA');
       return;
@@ -1134,7 +1169,12 @@ export function ProjectDetailPage() {
       notify.success(
         `IA lista para revisión: ${candidates.length} sugerencia(s)${deduped.length > limited.length ? ' (lote parcial)' : ''}`,
       );
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message.toLowerCase().includes('pro users only')) {
+        setProModalOpen(true);
+        return;
+      }
       notify.error('No se pudieron obtener sugerencias IA');
     } finally {
       setAiSuggestBusy(false);
@@ -1477,6 +1517,24 @@ export function ProjectDetailPage() {
             void cloneEditorFileToLanguage(false);
           }}
         />
+
+        <Dialog open={proModalOpen} onOpenChange={setProModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Función disponible para usuarios PRO</DialogTitle>
+              <DialogDescription>
+                Las sugerencias con IA solo están disponibles para cuentas PRO. Puedes seguir usando análisis, editor y
+                exportaciones con tu cuenta actual.
+              </DialogDescription>
+            </DialogHeader>
+
+            <DialogFooter>
+              <Button type="button" onClick={() => setProModalOpen(false)}>
+                Entendido
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog
           open={Boolean(languageToEdit)}

@@ -492,12 +492,9 @@ describe('TranslationFilesService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('restoreVersion restores selected version for PRO users and snapshots current content', async () => {
+  it('restoreVersion restores selected version for PRO users without creating a new snapshot', async () => {
     prismaMock.translationFile.findFirst = jest.fn().mockResolvedValue({
       id: 'tf-1',
-      content: {
-        title: 'Actual',
-      },
     });
     prismaMock.translationFileVersion.findFirst = jest
       .fn()
@@ -508,9 +505,6 @@ describe('TranslationFilesService', () => {
           title: 'Version antigua',
         },
       });
-    txMock.translationFileVersion.findFirst.mockResolvedValue({
-      versionNumber: 4,
-    });
 
     await service.restoreVersion('project-1', 'tf-1', 'version-1', {
       sub: 'user-pro',
@@ -519,16 +513,8 @@ describe('TranslationFilesService', () => {
       tier: Tier.PRO,
     });
 
-    expect(txMock.translationFileVersion.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          translationFileId: 'tf-1',
-          versionNumber: 5,
-          createdById: 'user-pro',
-        }),
-      }),
-    );
-    expect(txMock.translationFile.update).toHaveBeenCalledWith(
+    expect(txMock.translationFileVersion.create).not.toHaveBeenCalled();
+    expect(prismaMock.translationFile.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'tf-1' },
         data: {

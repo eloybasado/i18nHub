@@ -178,7 +178,6 @@ export class TranslationFilesService {
       },
       select: {
         id: true,
-        content: true,
       },
     });
 
@@ -204,56 +203,32 @@ export class TranslationFilesService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const latestVersion = await tx.translationFileVersion.findFirst({
-        where: {
-          translationFileId,
-        },
-        orderBy: {
-          versionNumber: 'desc',
-        },
-        select: {
-          versionNumber: true,
-        },
-      });
-
-      await tx.translationFileVersion.create({
-        data: {
-          translationFileId,
-          content: this.toInputJson(translationFile.content),
-          versionNumber: (latestVersion?.versionNumber ?? 0) + 1,
-          createdById: user.sub,
-          comment: `Auto snapshot before restoring v${version.versionNumber}`,
-        },
-      });
-
-      return tx.translationFile.update({
-        where: {
-          id: translationFileId,
-        },
-        data: {
-          content: this.toInputJson(version.content),
-        },
-        select: {
-          id: true,
-          filename: true,
-          content: true,
-          uploadedAt: true,
-          language: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-            },
-          },
-          fileGroup: {
-            select: {
-              id: true,
-              name: true,
-            },
+    return this.prisma.translationFile.update({
+      where: {
+        id: translationFileId,
+      },
+      data: {
+        content: this.toInputJson(version.content),
+      },
+      select: {
+        id: true,
+        filename: true,
+        content: true,
+        uploadedAt: true,
+        language: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
           },
         },
-      });
+        fileGroup: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     });
   }
 
