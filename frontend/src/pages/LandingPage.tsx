@@ -1,11 +1,112 @@
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import type { DotLottie } from '@lottiefiles/dotlottie-web';
-import { ArrowRight, BrainCircuit, CheckCircle2, FolderKanban, Languages, ShieldCheck } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import {
+  ArrowRight,
+  BookOpen,
+  BrainCircuit,
+  CalendarClock,
+  CheckCircle2,
+  ExternalLink,
+  FileCode,
+  FolderKanban,
+  Github,
+  Languages,
+  ListChecks,
+  Milestone,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  Workflow,
+} from 'lucide-react';
+import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { Link } from 'react-router-dom';
+import { FeatureCard, StepCard } from '../components/landing/LandingCards';
 import { Button } from '../components/ui/button';
 
+type LandingCardItem = {
+  icon: ComponentType<{ size?: number; className?: string }>;
+  title: string;
+  description: string;
+  eyebrow?: string;
+};
+
+const AI_FEATURE_CARDS: LandingCardItem[] = [
+  {
+    icon: Sparkles,
+    title: 'Sugerencias contextuales',
+    description: 'Genera propuestas sobre missing keys e inconsistencias sin salir del flujo de edición.',
+  },
+  {
+    icon: Workflow,
+    title: 'Diccionario + contexto IA',
+    description: 'Define términos y notas por idioma para mantener consistencia de marca en todo el producto.',
+  },
+  {
+    icon: ListChecks,
+    title: 'Revisión aplicable',
+    description: 'Selecciona qué sugerencias aplicar y mantén control manual antes de guardar cambios.',
+  },
+];
+
+const I18N_EDUCATION_CARDS: LandingCardItem[] = [
+  {
+    icon: Languages,
+    title: 'i18n',
+    description: 'Internacionalización: dejar la app preparada para múltiples idiomas y reglas regionales.',
+  },
+  {
+    icon: Workflow,
+    title: 'l10n',
+    description: 'Localización: adaptar idioma, tono y convenciones para cada mercado o comunidad.',
+  },
+  {
+    icon: BookOpen,
+    title: 'Qué suele fallar',
+    description: 'Keys faltantes, interpolaciones inconsistentes y textos sobrantes son errores típicos en frontend.',
+  },
+];
+
+const ROADMAP_POST_TFM_CARDS: LandingCardItem[] = [
+  {
+    icon: Milestone,
+    eyebrow: 'Post-TFM · fase 1',
+    title: 'Base de producto',
+    description: 'CI/CD, hardening del backend y observabilidad para un entorno más robusto y mantenible.',
+  },
+  {
+    icon: CalendarClock,
+    eyebrow: 'Post-TFM · fase 2',
+    title: 'Escalado funcional',
+    description: 'Mejor experiencia colaborativa, paneles de calidad por idioma e historial más avanzado.',
+  },
+  {
+    icon: Target,
+    eyebrow: 'Post-TFM · fase 3',
+    title: 'Modelo de producto',
+    description: 'Plan PRO y roadmap público para evolución abierta del proyecto.',
+  },
+];
+
+const GETTING_STARTED_STEPS = [
+  {
+    step: 'Paso 1',
+    title: 'Prueba la demo',
+    description: 'Sube un JSON y edita en modo visual/RAW sin registro.',
+  },
+  {
+    step: 'Paso 2',
+    title: 'Crea proyecto',
+    description: 'Carga idiomas, ejecuta análisis y revisa issues detectados.',
+  },
+  {
+    step: 'Paso 3',
+    title: 'Escala con IA',
+    description: 'Aplica sugerencias y exporta JSON/ZIP con confianza.',
+  },
+];
+
 export function LandingPage() {
+  const githubRepoUrl = 'https://github.com/eloybasado/i18nHub';
   const translationFeatureRef = useRef<HTMLElement | null>(null);
   const replayTimeoutRef = useRef<number | null>(null);
   const [playTranslationAnim, setPlayTranslationAnim] = useState(false);
@@ -101,7 +202,7 @@ export function LandingPage() {
         </div>
       </header>
 
-      <section className="relative overflow-hidden border-b border-zinc-200/80 bg-[radíal-gradient(circle_at_80%_20%,rgba(24,24,27,0.07),transparent_45%),linear-gradient(180deg,#fff_0%,#fafafa_100%)] md:min-h-[540px]">
+      <section className="relative overflow-hidden border-b border-zinc-200/80 bg-[radial-gradient(circle_at_80%_20%,rgba(24,24,27,0.07),transparent_45%),linear-gradient(180deg,#fff_0%,#fafafa_100%)] md:min-h-[540px]">
         <div className="pointer-events-none absolute inset-y-0 -right-[10vw] hidden w-[84vw] md:block">
           <DotLottieReact
             src="/animations/world-map-scroll.lottie"
@@ -128,7 +229,7 @@ export function LandingPage() {
               Limpia y valida tus traducciones JSON en minutos
             </h1>
             <p className="max-w-2xl text-lg leading-relaxed text-zinc-600 md:text-xl">
-              Empieza con el demo para editar archivos en local y, cuando quieras trabajar en serio, da el salto a una
+              Empieza con la demo para editar archivos en local y, cuando quieras trabajar en serio, da el salto a una
               cuenta para guardar proyectos, analizar idiomas y colaborar.
             </p>
 
@@ -263,6 +364,232 @@ export function LandingPage() {
         </div>
       </section>
 
+      <section className="border-y border-zinc-200 bg-zinc-50/80">
+        <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
+          <div className="mb-8 max-w-3xl">
+            <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">
+              IA útil para localización real
+            </h2>
+            <p className="mt-3 text-lg text-zinc-600 md:text-xl">
+              i18nHub integra IA de forma práctica: no para reemplazar al equipo, sino para acelerar revisiones y
+              propuestas con contexto de proyecto.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {AI_FEATURE_CARDS.map((card) => (
+              <FeatureCard key={card.title} icon={card.icon} title={card.title} description={card.description} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
+        <div className="grid gap-10 md:grid-cols-[minmax(0,1fr)_300px] md:items-start">
+          <div className="max-w-3xl">
+            <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">¿Qué es este TFM?</h2>
+            <p className="mt-3 text-lg text-zinc-600">
+              i18nHub nace como Trabajo Fin de Máster orientado a resolver un problema común en equipos frontend:
+              gestionar traducciones JSON de forma rápida, fiable y sin depender de plataformas costosas.
+            </p>
+
+            <div className="mt-7 space-y-4">
+              <article className="flex items-start gap-4">
+                <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-900">
+                  <FileCode size={22} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold tracking-tight text-zinc-900">Enfoque técnico</h3>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    React + NestJS + Prisma para un stack moderno, mantenible y fácil de presentar.
+                  </p>
+                </div>
+              </article>
+
+              <article className="flex items-start gap-4">
+                <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-900">
+                  <BrainCircuit size={22} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold tracking-tight text-zinc-900">IA aplicada</h3>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    Sugerencias asistidas con control humano para mejorar productividad sin perder calidad lingüística.
+                  </p>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <aside className="rounded-2xl bg-zinc-50/90 p-6">
+            <p className="text-sm font-semibold uppercase tracking-[0.1em] text-zinc-500">Objetivo académico</p>
+            <ul className="mt-4 space-y-3 text-sm leading-relaxed text-zinc-700">
+              <li className="flex items-start gap-2">
+                <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-zinc-800" />
+                Diseñar un producto usable para equipos pequeños.
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-zinc-800" />
+                Validar calidad de traducciones con reglas objetivas.
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-zinc-800" />
+                Integrar IA de forma responsable y medible.
+              </li>
+            </ul>
+          </aside>
+        </div>
+      </section>
+
+      <section className="border-y border-zinc-200 bg-zinc-50/70">
+        <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
+          <div className="mb-8 max-w-3xl">
+            <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">
+              i18n y localización, en claro
+            </h2>
+            <p className="mt-3 text-lg text-zinc-600 md:text-xl">
+              i18n no es solo traducir texto: es diseñar una experiencia global desde el código, el formato y el
+              contexto cultural.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {I18N_EDUCATION_CARDS.map((card) => (
+              <FeatureCard key={card.title} icon={card.icon} title={card.title} description={card.description} />
+            ))}
+          </div>
+
+          <div className="mt-7 grid gap-4 md:grid-cols-[240px_minmax(0,1fr)]">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-zinc-500">Recursos oficiales</p>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                Referencias fiables para entender estándares de internacionalización y aplicar buenas prácticas en
+                frontend.
+              </p>
+            </div>
+
+            <ul className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200/80">
+              <li className="border-b border-zinc-200">
+                <a
+                  href="https://www.w3.org/International/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group flex items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-zinc-50"
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-zinc-900">W3C Internationalization</span>
+                    <span className="mt-0.5 block text-xs text-zinc-600">
+                      Guías base de i18n para web (idiomas, bidireccionalidad, formatos y accesibilidad cultural).
+                    </span>
+                  </span>
+                  <ExternalLink size={14} className="mt-0.5 shrink-0 text-zinc-400 group-hover:text-zinc-700" />
+                </a>
+              </li>
+
+              <li className="border-b border-zinc-200">
+                <a
+                  href="https://cldr.unicode.org/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group flex items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-zinc-50"
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-zinc-900">Unicode CLDR</span>
+                    <span className="mt-0.5 block text-xs text-zinc-600">
+                      Datos oficiales de locales para pluralización, números, monedas y fechas.
+                    </span>
+                  </span>
+                  <ExternalLink size={14} className="mt-0.5 shrink-0 text-zinc-400 group-hover:text-zinc-700" />
+                </a>
+              </li>
+
+              <li>
+                <a
+                  href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group flex items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-zinc-50"
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-zinc-900">MDN Intl API</span>
+                    <span className="mt-0.5 block text-xs text-zinc-600">
+                      Documentación práctica de JavaScript Intl para implementar formatos locales correctamente.
+                    </span>
+                  </span>
+                  <ExternalLink size={14} className="mt-0.5 shrink-0 text-zinc-400 group-hover:text-zinc-700" />
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
+        <div className="rounded-2xl bg-zinc-900 p-6 text-zinc-100 md:p-8">
+          <h2 className="text-3xl font-black tracking-tight md:text-4xl">How to get started</h2>
+          <p className="mt-3 max-w-3xl text-lg text-zinc-300">
+            En menos de 10 minutos puedes probar el flujo completo, entender el valor de i18nHub y decidir si encaja
+            para tu equipo.
+          </p>
+
+          <ol className="mt-6 grid gap-3 md:grid-cols-3">
+            {GETTING_STARTED_STEPS.map((step) => (
+              <StepCard key={step.step} step={step.step} title={step.title} description={step.description} />
+            ))}
+          </ol>
+
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <Link to="/demo">
+              <Button type="button" className="h-10 bg-white text-zinc-900 hover:bg-zinc-200">
+                Abrir demo
+              </Button>
+            </Link>
+
+            <Link to="/register">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 border-zinc-500 bg-transparent text-zinc-100 hover:bg-zinc-800"
+              >
+                Crear cuenta
+              </Button>
+            </Link>
+
+            <a
+              href={githubRepoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-zinc-500 px-4 text-sm font-medium text-zinc-100 transition-colors hover:bg-zinc-800"
+            >
+              <Github size={16} />
+              Ver repositorio en GitHub
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-zinc-200 bg-zinc-50/70">
+        <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
+          <div className="mb-8 max-w-3xl">
+            <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">Roadmap post-TFM</h2>
+            <p className="mt-3 text-lg text-zinc-600 md:text-xl">
+              Líneas de evolución planteadas para la fase posterior a la defensa del TFM.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {ROADMAP_POST_TFM_CARDS.map((card) => (
+              <FeatureCard
+                key={card.title}
+                icon={card.icon}
+                title={card.title}
+                description={card.description}
+                eyebrow={card.eyebrow}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
       <footer className="border-t border-zinc-200 bg-zinc-50/80">
         <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-8 text-sm text-zinc-600 md:grid-cols-3 md:px-6">
           <div>
@@ -284,6 +611,9 @@ export function LandingPage() {
               <Link to="/login" className="hover:text-zinc-900 hover:underline">
                 Iniciar sesión
               </Link>
+              <a href={githubRepoUrl} target="_blank" rel="noreferrer" className="hover:text-zinc-900 hover:underline">
+                Repositorio GitHub
+              </a>
             </div>
           </div>
 
