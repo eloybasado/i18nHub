@@ -118,3 +118,21 @@ export type AiGlossaryEntry = {
   targetTerm: string;
   languageCodes: string[];
 };
+
+export type AiBatchSuggestionsResponse = {
+  count: number;
+  suggestions: Array<{
+    key: string;
+    suggestion: string;
+    reason?: string;
+  }>;
+};
+
+export type AiContextSettingsResponse = {
+  context: string;
+  glossary: Array<{
+    sourceTerm: string;
+    targetTerm: string;
+    languageCodes: string[];
+  }>;
+};

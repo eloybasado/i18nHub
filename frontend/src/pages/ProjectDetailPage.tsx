@@ -25,6 +25,8 @@ import { apiRequest } from '../lib/api';
 import { session } from '../lib/session';
 import { notify } from '../lib/toast';
 import type {
+  AiBatchSuggestionsResponse,
+  AiContextSettingsResponse,
   AiGlossaryEntry,
   AnalysisReport,
   IngestResponse,
@@ -55,6 +57,33 @@ type AiSuggestionCandidate = {
 };
 
 type AiSuggestionScope = 'CURRENT_FILE_ISSUES' | 'ALL_FILES_ISSUES' | 'ALL_FILES_BY_TYPE';
+
+const toAiContextPayload = (context: string, glossaryEntries: AiGlossaryEntry[]) => {
+  return {
+    context,
+    glossary: glossaryEntries
+      .map((entry) => ({
+        sourceTerm: entry.sourceTerm.trim(),
+        targetTerm: entry.targetTerm.trim(),
+        languageCodes: entry.languageCodes.map((code) => code.trim()).filter((code) => code.length > 0),
+      }))
+      .filter((entry) => entry.sourceTerm.length > 0 && entry.targetTerm.length > 0),
+  };
+};
+
+const toAiContextSignature = (context: string, glossaryEntries: AiGlossaryEntry[]) => {
+  const payload = toAiContextPayload(context, glossaryEntries);
+  return JSON.stringify(payload);
+};
+
+const toAiGlossaryEntries = (glossary: AiContextSettingsResponse['glossary']): AiGlossaryEntry[] => {
+  return glossary.map((entry, index) => ({
+    id: `persisted-${index}-${entry.sourceTerm}-${entry.targetTerm}`,
+    sourceTerm: entry.sourceTerm,
+    targetTerm: entry.targetTerm,
+    languageCodes: entry.languageCodes,
+  }));
+};
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -200,6 +229,9 @@ export function ProjectDetailPage() {
   const [aiSuggestionIssueTypeFilter, setAiSuggestionIssueTypeFilter] = useState<IssueType>('MISSING_KEY');
   const [aiContext, setAiContext] = useState('');
   const [aiGlossaryEntries, setAiGlossaryEntries] = useState<AiGlossaryEntry[]>([]);
+  const [aiContextHydrated, setAiContextHydrated] = useState(false);
+  const [aiContextSaving, setAiContextSaving] = useState(false);
+  const [aiContextSavedSignature, setAiContextSavedSignature] = useState('');
   const [editorBusy, setEditorBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [expandedIssueId, setExpandedIssueId] = useState<string | null>(null);
@@ -213,6 +245,7 @@ export function ProjectDetailPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [proModalOpen, setProModalOpen] = useState(false);
+  const hasConfiguredLanguages = languages.length > 0;
 
   const getCurrentUserTier = (): 'FREE' | 'PRO' | null => {
     const token = session.getAccessToken();
@@ -264,14 +297,28 @@ export function ProjectDetailPage() {
     if (!projectId) return;
 
     try {
-      const [projectData, languagesData, filesData] = await Promise.all([
+      const [projectData, languagesData, filesData, aiContextSettings] = await Promise.all([
         apiRequest<Project>(`/projects/${projectId}`, { auth: true }),
         apiRequest<Language[]>(`/projects/${projectId}/languages`, { auth: true }),
         apiRequest<TranslationFileSummary[]>(`/projects/${projectId}/translation-files`, { auth: true }),
+        apiRequest<AiContextSettingsResponse>(`/projects/${projectId}/ai/context`, {
+          auth: true,
+        }).catch(() => ({
+          context: '',
+          glossary: [],
+        })),
       ]);
+
+      const glossaryEntries = toAiGlossaryEntries(aiContextSettings.glossary);
+      const savedSignature = toAiContextSignature(aiContextSettings.context, glossaryEntries);
+
       setProject(projectData);
       setLanguages(languagesData);
       setTranslationFiles(filesData);
+      setAiContext(aiContextSettings.context);
+      setAiGlossaryEntries(glossaryEntries);
+      setAiContextSavedSignature(savedSignature);
+      setAiContextHydrated(true);
     } catch {
       setError('No se pudo cargar el proyecto');
     }
@@ -280,6 +327,46 @@ export function ProjectDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!projectId || !aiContextHydrated) {
+      return;
+    }
+
+    const currentSignature = toAiContextSignature(aiContext, aiGlossaryEntries);
+    if (currentSignature === aiContextSavedSignature) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const persist = async () => {
+        setAiContextSaving(true);
+
+        try {
+          const payload = toAiContextPayload(aiContext, aiGlossaryEntries);
+
+          const saved = await apiRequest<AiContextSettingsResponse>(`/projects/${projectId}/ai/context`, {
+            method: 'PATCH',
+            auth: true,
+            body: payload,
+          });
+
+          const savedEntries = toAiGlossaryEntries(saved.glossary);
+          setAiContextSavedSignature(toAiContextSignature(saved.context, savedEntries));
+        } catch {
+          // Keep silent to avoid noisy toasts while typing.
+        } finally {
+          setAiContextSaving(false);
+        }
+      };
+
+      void persist();
+    }, 450);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [aiContext, aiContextHydrated, aiContextSavedSignature, aiGlossaryEntries, projectId]);
 
   const onAddLanguage = async (event: FormEvent) => {
     event.preventDefault();
@@ -392,6 +479,12 @@ export function ProjectDetailPage() {
   };
 
   const onPickFiles = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (!hasConfiguredLanguages) {
+      notify.info('Primero añade al menos un idioma en la sección Idiomas.');
+      setActiveSection('languages');
+      return;
+    }
+
     const files = event.target.files;
     if (!files || files.length === 0) {
       setIngestFiles([]);
@@ -406,6 +499,12 @@ export function ProjectDetailPage() {
   const onDropFiles = async (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setIsDraggingFiles(false);
+
+    if (!hasConfiguredLanguages) {
+      notify.info('Primero añade al menos un idioma en la sección Idiomas.');
+      setActiveSection('languages');
+      return;
+    }
 
     const droppedFiles = Array.from(event.dataTransfer.files).filter((file) =>
       file.name.toLowerCase().endsWith('.json'),
@@ -431,6 +530,12 @@ export function ProjectDetailPage() {
 
   const onIngest = async () => {
     if (!projectId || ingestFiles.length === 0) {
+      return;
+    }
+
+    if (!hasConfiguredLanguages) {
+      notify.info('Configura idiomas antes de cargar archivos para evitar errores de mapeo.');
+      setActiveSection('languages');
       return;
     }
 
@@ -1118,10 +1223,7 @@ export function ProjectDetailPage() {
     const limited = deduped.slice(0, 40);
     setAiSuggestBusy(true);
     try {
-      const result = await apiRequest<{
-        count: number;
-        suggestions: Array<{ key: string; suggestion: string; reason?: string }>;
-      }>(`/projects/${projectId}/ai/suggestions/batch`, {
+      const result = await apiRequest<AiBatchSuggestionsResponse>(`/projects/${projectId}/ai/suggestions/batch`, {
         method: 'POST',
         auth: true,
         body: {
@@ -1249,10 +1351,6 @@ export function ProjectDetailPage() {
       />
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-24 md:px-6 lg:pb-6">
-        {error ? (
-          <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-        ) : null}
-
         <div className="lg:hidden">
           <div className="fixed bottom-3 left-1/2 z-30 w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-2xl border border-zinc-200 bg-white/95 p-1.5 shadow-lg backdrop-blur">
             <nav className="grid grid-cols-3 gap-1">
@@ -1278,6 +1376,10 @@ export function ProjectDetailPage() {
         </div>
 
         <div className="mt-4 lg:pl-72">
+          {error ? (
+            <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+          ) : null}
+
           <aside className="fixed left-6 top-24 z-20 hidden w-64 lg:block">
             <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
               <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Secciones</p>
@@ -1342,6 +1444,7 @@ export function ProjectDetailPage() {
             <div className={`${activeSection === 'upload' ? 'block' : 'hidden'}`}>
               <UploadSection
                 pattern={project?.i18nPattern}
+                hasConfiguredLanguages={hasConfiguredLanguages}
                 isDraggingFiles={isDraggingFiles}
                 ingestFiles={ingestFiles}
                 translationFiles={translationFiles}
@@ -1351,6 +1454,7 @@ export function ProjectDetailPage() {
                 onDragLeaveFiles={onDragLeaveFiles}
                 onPickFiles={onPickFiles}
                 onIngest={onIngest}
+                onGoToLanguages={() => setActiveSection('languages')}
                 onEditFile={(fileId) => {
                   void openEditorForFile(fileId);
                 }}
@@ -1435,6 +1539,7 @@ export function ProjectDetailPage() {
             <div className={`${activeSection === 'ai-context' ? 'block' : 'hidden'} mt-2`}>
               <AiContextSection
                 aiContext={aiContext}
+                contextSaving={aiContextSaving}
                 onAiContextChange={setAiContext}
                 languages={languages}
                 glossaryEntries={aiGlossaryEntries}

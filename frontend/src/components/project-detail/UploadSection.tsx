@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, FilePenLine, FileUp, FolderTree, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, FilePenLine, FileUp, FolderTree, Info, Trash2 } from 'lucide-react';
 import type { ChangeEvent, DragEvent } from 'react';
 import { useMemo, useState } from 'react';
 import type { I18nPattern, TranslationFileSummary } from '../../lib/types';
@@ -26,6 +26,7 @@ type GroupedUploadBucket<TFile> = {
 
 type UploadSectionProps = {
   pattern?: I18nPattern;
+  hasConfiguredLanguages: boolean;
   isDraggingFiles: boolean;
   ingestFiles: IngestFileItem[];
   translationFiles: TranslationFileSummary[];
@@ -35,6 +36,7 @@ type UploadSectionProps = {
   onDragLeaveFiles: (event: DragEvent<HTMLDivElement>) => void;
   onPickFiles: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   onIngest: () => void | Promise<void>;
+  onGoToLanguages: () => void;
   onEditFile: (fileId: string) => void | Promise<void>;
   onDeleteFile: (file: TranslationFileSummary) => void;
 };
@@ -87,6 +89,7 @@ const sortGroupedBuckets = <TFile,>(buckets: GroupedUploadBucket<TFile>[]) => {
 
 export function UploadSection({
   pattern,
+  hasConfiguredLanguages,
   isDraggingFiles,
   ingestFiles,
   translationFiles,
@@ -96,6 +99,7 @@ export function UploadSection({
   onDragLeaveFiles,
   onPickFiles,
   onIngest,
+  onGoToLanguages,
   onEditFile,
   onDeleteFile,
 }: UploadSectionProps) {
@@ -195,6 +199,9 @@ export function UploadSection({
     setCollapsedStoredBuckets(Object.fromEntries(groupedStoredFiles.map((bucket) => [bucket.key, collapsed])));
   };
 
+  const uploadEnabled = hasConfiguredLanguages;
+  const dropzoneInteractive = uploadEnabled && !loading;
+
   return (
     <div className="mt-2">
       <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
@@ -221,21 +228,47 @@ export function UploadSection({
         </Select>
       </div>
 
+      {!uploadEnabled ? (
+        <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="flex items-start gap-2">
+            <Info size={16} className="mt-0.5 shrink-0" />
+            <div>
+              <p className="font-semibold">Carga temporalmente desactivada</p>
+              <p className="mt-1 text-amber-800">
+                Primero configura al menos un idioma para poder mapear correctamente los archivos JSON.
+              </p>
+              <Button type="button" size="sm" variant="outline" className="mt-3" onClick={onGoToLanguages}>
+                Ir a Idiomas
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div
         className={`mt-3 rounded-xl border-2 border-dashed p-5 transition-colors ${
-          isDraggingFiles ? 'border-zinc-700 bg-zinc-50' : 'border-zinc-300 bg-zinc-50/40'
+          !uploadEnabled
+            ? 'cursor-not-allowed border-zinc-200 bg-zinc-100/70'
+            : isDraggingFiles
+              ? 'border-zinc-700 bg-zinc-50'
+              : 'border-zinc-300 bg-zinc-50/40'
         }`}
-        onDrop={onDropFiles}
-        onDragOver={onDragOverFiles}
-        onDragLeave={onDragLeaveFiles}
+        onDrop={dropzoneInteractive ? onDropFiles : undefined}
+        onDragOver={dropzoneInteractive ? onDragOverFiles : undefined}
+        onDragLeave={dropzoneInteractive ? onDragLeaveFiles : undefined}
       >
         <p className="text-sm font-medium text-zinc-800">Arrastra archivos JSON aqui</p>
-        <p className="mt-1 text-xs text-zinc-600">Tambien puedes seleccionar archivos o una carpeta desde Finder.</p>
+        <p className="mt-1 text-xs text-zinc-600">
+          {uploadEnabled
+            ? 'Tambien puedes seleccionar archivos o una carpeta desde Finder.'
+            : 'Activa la carga configurando idiomas en la sección correspondiente.'}
+        </p>
         <Input
           className="mt-3 block bg-white"
           type="file"
           accept=".json,application/json"
           multiple
+          disabled={!uploadEnabled}
           onChange={onPickFiles}
           // @ts-expect-error - this attribute is supported by Chromium browsers.
           webkitdirectory=""
@@ -300,11 +333,15 @@ export function UploadSection({
           </div>
         </div>
       ) : (
-        <p className="mt-3 text-sm text-zinc-500">Todavia no has seleccionado archivos.</p>
+        <p className="mt-3 text-sm text-zinc-500">
+          {uploadEnabled
+            ? 'Todavia no has seleccionado archivos.'
+            : 'Añade un idioma para habilitar la selección de archivos.'}
+        </p>
       )}
 
       <div className="mt-3">
-        <Button type="button" onClick={onIngest} disabled={loading || ingestFiles.length === 0}>
+        <Button type="button" onClick={onIngest} disabled={loading || ingestFiles.length === 0 || !uploadEnabled}>
           {loading ? 'Cargando...' : 'Cargar archivos'}
         </Button>
       </div>

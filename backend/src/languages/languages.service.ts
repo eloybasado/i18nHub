@@ -11,12 +11,26 @@ export class LanguagesService {
   async create(projectId: string, dto: CreateLanguageDto): Promise<Language> {
     await this.ensureProjectExists(projectId);
 
-    return this.prisma.language.create({
-      data: {
-        projectId,
-        code: dto.code.toLowerCase(),
-        name: dto.name,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const language = await tx.language.create({
+        data: {
+          projectId,
+          code: dto.code.toLowerCase(),
+          name: dto.name,
+        },
+      });
+
+      await tx.project.updateMany({
+        where: {
+          id: projectId,
+          referenceLanguageId: null,
+        },
+        data: {
+          referenceLanguageId: language.id,
+        },
+      });
+
+      return language;
     });
   }
 
@@ -79,13 +93,35 @@ export class LanguagesService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      const fallbackLanguage = await tx.language.findFirst({
+        where: {
+          projectId,
+          id: {
+            not: languageId,
+          },
+        },
+        orderBy: {
+          code: 'asc',
+        },
+        select: {
+          id: true,
+        },
+      });
+
       await tx.project.updateMany({
         where: {
           id: projectId,
-          referenceLanguageId: languageId,
+          OR: [
+            {
+              referenceLanguageId: languageId,
+            },
+            {
+              referenceLanguageId: null,
+            },
+          ],
         },
         data: {
-          referenceLanguageId: null,
+          referenceLanguageId: fallbackLanguage?.id ?? null,
         },
       });
 

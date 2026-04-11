@@ -63,6 +63,8 @@ model Project {
   i18nPattern         I18nPattern @map("i18n_pattern")
   ownerId             String      @map("owner_id")
   referenceLanguageId String?     @map("reference_language_id")
+  aiContext           String?     @map("ai_context")
+  aiGlossary          Json?       @map("ai_glossary")
   createdAt           DateTime    @default(now()) @map("created_at")
 
   owner              User            @relation(fields: [ownerId], references: [id])

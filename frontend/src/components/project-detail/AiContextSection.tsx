@@ -7,6 +7,7 @@ import { GlossaryTermRow } from './GlossaryTermRow';
 
 type AiContextSectionProps = {
   aiContext: string;
+  contextSaving?: boolean;
   onAiContextChange: (value: string) => void;
   languages: Language[];
   glossaryEntries: AiGlossaryEntry[];
@@ -17,6 +18,7 @@ type AiContextSectionProps = {
 
 export function AiContextSection({
   aiContext,
+  contextSaving = false,
   onAiContextChange,
   languages,
   glossaryEntries,
@@ -51,6 +53,10 @@ export function AiContextSection({
 
       <p className="mt-2 text-base text-zinc-600">
         Añade contexto global del proyecto para que las sugerencias de IA sean más precisas.
+      </p>
+
+      <p className="mt-1 text-xs text-zinc-500">
+        {contextSaving ? 'Guardando contexto IA...' : 'Contexto IA guardado automáticamente.'}
       </p>
 
       <div className="mt-4 rounded-lg border border-zinc-200 bg-white p-4">

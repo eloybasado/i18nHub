@@ -4,14 +4,39 @@ import { JwtPayload } from '../auth/types';
 import { AiService } from './ai.service';
 
 describe('AiService', () => {
+  const prismaMock = {
+    project: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+  };
+
   const llmProviderMock = {
     suggestBatch: jest.fn(),
   };
 
-  const service = new AiService(llmProviderMock);
+  const service = new AiService(prismaMock as never, llmProviderMock);
+  const projectId = '11111111-1111-4111-8111-111111111111';
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    prismaMock.project.findUnique.mockResolvedValue({
+      id: projectId,
+      aiContext: null,
+      aiGlossary: null,
+    });
+
+    prismaMock.project.update.mockResolvedValue({
+      aiContext: 'Tono profesional',
+      aiGlossary: [
+        {
+          sourceTerm: 'Book Hunter',
+          targetTerm: 'Book Hunter',
+          languageCodes: ['es'],
+        },
+      ],
+    });
   });
 
   it('throws for FREE users', async () => {
@@ -55,6 +80,7 @@ describe('AiService', () => {
       targetLanguageCode: 'fr',
       items: [{ key: 'home.title', referenceText: 'Home' }],
     });
+
     expect(result.count).toBe(1);
   });
 
@@ -123,6 +149,57 @@ describe('AiService', () => {
         },
       ],
       items: [{ key: 'brand.hero', referenceText: 'Book Hunter' }],
+    });
+  });
+
+  it('returns empty AI context settings when project has none', async () => {
+    const result = await service.getContextSettings(projectId);
+
+    expect(result).toEqual({
+      context: '',
+      glossary: [],
+    });
+  });
+
+  it('updates and returns normalized AI context settings', async () => {
+    const result = await service.updateContextSettings(projectId, {
+      context: '  Tono profesional  ',
+      glossary: [
+        {
+          sourceTerm: '  Book Hunter ',
+          targetTerm: ' Book Hunter  ',
+          languageCodes: [' es ', ''],
+        },
+      ],
+    });
+
+    expect(prismaMock.project.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: projectId,
+        },
+        data: expect.objectContaining({
+          aiContext: 'Tono profesional',
+          aiGlossary: [
+            {
+              sourceTerm: 'Book Hunter',
+              targetTerm: 'Book Hunter',
+              languageCodes: ['es'],
+            },
+          ],
+        }),
+      }),
+    );
+
+    expect(result).toEqual({
+      context: 'Tono profesional',
+      glossary: [
+        {
+          sourceTerm: 'Book Hunter',
+          targetTerm: 'Book Hunter',
+          languageCodes: ['es'],
+        },
+      ],
     });
   });
 });
