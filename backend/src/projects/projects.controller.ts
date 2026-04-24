@@ -18,7 +18,9 @@ import { ProjectRoles } from '../common/decorators/project-roles.decorator';
 import { ProjectRoleGuard } from '../common/guards/project-role.guard';
 import { AddProjectMemberDto } from './dto/add-project-member.dto';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { TransferProjectOwnershipDto } from './dto/transfer-project-ownership.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { UpdateProjectMemberRoleDto } from './dto/update-project-member-role.dto';
 import { ProjectsService } from './projects.service';
 
 @Controller('projects')
@@ -63,6 +65,54 @@ export class ProjectsController {
     @Body() dto: AddProjectMemberDto,
   ) {
     return this.projectsService.addMember(id, dto);
+  }
+
+  @Get(':id/members')
+  @UseGuards(ProjectRoleGuard)
+  @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR, ProjectRole.VIEWER)
+  listMembers(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.projectsService.listMembers(id);
+  }
+
+  @Patch(':id/members/:userId')
+  @UseGuards(ProjectRoleGuard)
+  @ProjectRoles(ProjectRole.OWNER)
+  updateMemberRole(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Body() dto: UpdateProjectMemberRoleDto,
+  ) {
+    return this.projectsService.updateMemberRole(id, userId, dto);
+  }
+
+  @Delete(':id/members/:userId')
+  @UseGuards(ProjectRoleGuard)
+  @ProjectRoles(ProjectRole.OWNER)
+  removeMember(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+  ) {
+    return this.projectsService.removeMember(id, userId);
+  }
+
+  @Post(':id/members/leave')
+  @UseGuards(ProjectRoleGuard)
+  @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR, ProjectRole.VIEWER)
+  leaveProject(@Req() req: Request, @Param('id', new ParseUUIDPipe()) id: string) {
+    const user = req.user as JwtPayload;
+    return this.projectsService.leaveProject(id, user.sub);
+  }
+
+  @Post(':id/ownership/transfer')
+  @UseGuards(ProjectRoleGuard)
+  @ProjectRoles(ProjectRole.OWNER)
+  transferOwnership(
+    @Req() req: Request,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: TransferProjectOwnershipDto,
+  ) {
+    const user = req.user as JwtPayload;
+    return this.projectsService.transferOwnership(id, user.sub, dto);
   }
 
   @Delete(':id')

@@ -33,6 +33,16 @@ export type Project = {
   createdAt: string;
 };
 
+export type ProjectMemberRole = 'OWNER' | 'EDITOR' | 'VIEWER';
+
+export type ProjectMember = {
+  userId: string;
+  email: string;
+  name: string;
+  role: ProjectMemberRole;
+  isOwner: boolean;
+};
+
 export type Language = {
   id: string;
   projectId: string;

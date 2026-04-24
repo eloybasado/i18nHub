@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { ArrowLeft, Bot, FilePenLine, FileSearch, FileUp, Languages, Star } from 'lucide-react';
+import { ArrowLeft, Bot, FilePenLine, FileSearch, FileUp, Languages, Star, Users } from 'lucide-react';
 import type { ChangeEvent, DragEvent, FormEvent, ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -9,6 +9,7 @@ import { AnalysisSection } from '../components/project-detail/AnalysisSection';
 import { EditorSection } from '../components/project-detail/EditorSection';
 import { LanguagesSection } from '../components/project-detail/LanguagesSection';
 import { OverviewSection } from '../components/project-detail/OverviewSection';
+import { TeamSection } from '../components/project-detail/TeamSection';
 import { UploadSection, type IngestFileItem } from '../components/project-detail/UploadSection';
 import { Button } from '../components/ui/button';
 import { ConfirmModal } from '../components/ui/confirm-modal';
@@ -32,6 +33,7 @@ import type {
   IngestResponse,
   IssueType,
   Language,
+  ProjectMember,
   Project,
   RunAnalysisResponse,
   TranslationFileDetail,
@@ -174,6 +176,7 @@ const PATTERN_LABELS: Record<Project['i18nPattern'], string> = {
 
 const SECTION_ITEMS = [
   { id: 'overview', label: 'Resumen' },
+  { id: 'team', label: 'Equipo' },
   { id: 'languages', label: 'Idiomas' },
   { id: 'upload', label: 'Carga' },
   { id: 'editor', label: 'Editor' },
@@ -186,6 +189,7 @@ type CloneMode = 'EMPTY_STRUCTURE' | 'COPY_CONTENT';
 
 const sectionIconById: Record<SectionId, ReactNode> = {
   overview: <Star size={14} />,
+  team: <Users size={14} />,
   languages: <Languages size={14} />,
   upload: <FileUp size={14} />,
   editor: <FilePenLine size={14} />,
@@ -197,10 +201,15 @@ export function ProjectDetailPage() {
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<Project | null>(null);
+  const [teamMembers, setTeamMembers] = useState<ProjectMember[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
   const [translationFiles, setTranslationFiles] = useState<TranslationFileSummary[]>([]);
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
+  const [memberEmail, setMemberEmail] = useState('');
+  const [memberRole, setMemberRole] = useState<'EDITOR' | 'VIEWER'>('VIEWER');
+  const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(null);
+  const [memberToTransfer, setMemberToTransfer] = useState<ProjectMember | null>(null);
   const [ingestFiles, setIngestFiles] = useState<IngestFileItem[]>([]);
   const [analysisReport, setAnalysisReport] = useState<AnalysisReport | null>(null);
   const [issueTypeFilter, setIssueTypeFilter] = useState<'ALL' | IssueType>('ALL');
@@ -243,9 +252,31 @@ export function ProjectDetailPage() {
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
   const [loading, setLoading] = useState(false);
+  const [teamLoading, setTeamLoading] = useState(false);
   const [error, setError] = useState('');
   const [proModalOpen, setProModalOpen] = useState(false);
   const hasConfiguredLanguages = languages.length > 0;
+
+  const getCurrentUserId = (): string | null => {
+    const token = session.getAccessToken();
+    if (!token) {
+      return null;
+    }
+
+    try {
+      const payloadBase64 = token.split('.')[1];
+      if (!payloadBase64) {
+        return null;
+      }
+
+      const normalized = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+      const decoded = JSON.parse(atob(padded)) as { sub?: string };
+      return decoded.sub ?? null;
+    } catch {
+      return null;
+    }
+  };
 
   const getCurrentUserTier = (): 'FREE' | 'PRO' | null => {
     const token = session.getAccessToken();
@@ -267,6 +298,10 @@ export function ProjectDetailPage() {
       return null;
     }
   };
+
+  const currentUserId = getCurrentUserId();
+  const canManageTeam = Boolean(project && currentUserId && project.ownerId === currentUserId);
+  const canLeaveProject = Boolean(project && currentUserId && project.ownerId !== currentUserId);
 
   const parseFilesForIngest = async (files: File[]) => {
     try {
@@ -297,8 +332,9 @@ export function ProjectDetailPage() {
     if (!projectId) return;
 
     try {
-      const [projectData, languagesData, filesData, aiContextSettings] = await Promise.all([
+      const [projectData, membersData, languagesData, filesData, aiContextSettings] = await Promise.all([
         apiRequest<Project>(`/projects/${projectId}`, { auth: true }),
+        apiRequest<ProjectMember[]>(`/projects/${projectId}/members`, { auth: true }),
         apiRequest<Language[]>(`/projects/${projectId}/languages`, { auth: true }),
         apiRequest<TranslationFileSummary[]>(`/projects/${projectId}/translation-files`, { auth: true }),
         apiRequest<AiContextSettingsResponse>(`/projects/${projectId}/ai/context`, {
@@ -313,6 +349,7 @@ export function ProjectDetailPage() {
       const savedSignature = toAiContextSignature(aiContextSettings.context, glossaryEntries);
 
       setProject(projectData);
+      setTeamMembers(membersData);
       setLanguages(languagesData);
       setTranslationFiles(filesData);
       setAiContext(aiContextSettings.context);
@@ -391,6 +428,151 @@ export function ProjectDetailPage() {
       notify.error(message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onAddMember = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!projectId) return;
+
+    if (!canManageTeam) {
+      notify.error('Solo el owner del proyecto puede anadir miembros');
+      return;
+    }
+
+    setTeamLoading(true);
+    setError('');
+
+    try {
+      await apiRequest(`/projects/${projectId}/members`, {
+        method: 'POST',
+        auth: true,
+        body: {
+          email: memberEmail,
+          role: memberRole,
+        },
+      });
+
+      notify.success('Miembro anadido correctamente');
+      setMemberEmail('');
+      setMemberRole('VIEWER');
+      await load();
+    } catch {
+      const message = 'No se pudo anadir el miembro';
+      setError(message);
+      notify.error(message);
+    } finally {
+      setTeamLoading(false);
+    }
+  };
+
+  const onUpdateMemberRole = async (
+    member: ProjectMember,
+    role: 'EDITOR' | 'VIEWER',
+  ) => {
+    if (!projectId) return;
+
+    if (!canManageTeam) {
+      notify.error('Solo el owner del proyecto puede gestionar roles');
+      return;
+    }
+
+    if (member.isOwner || member.role === role) {
+      return;
+    }
+
+    setTeamLoading(true);
+    setError('');
+
+    try {
+      await apiRequest(`/projects/${projectId}/members/${member.userId}`, {
+        method: 'PATCH',
+        auth: true,
+        body: { role },
+      });
+
+      notify.success('Rol del miembro actualizado');
+      await load();
+    } catch {
+      const message = 'No se pudo actualizar el rol del miembro';
+      setError(message);
+      notify.error(message);
+    } finally {
+      setTeamLoading(false);
+    }
+  };
+
+  const removeMember = async () => {
+    if (!projectId || !memberToRemove) return;
+
+    setTeamLoading(true);
+    setError('');
+
+    try {
+      await apiRequest(`/projects/${projectId}/members/${memberToRemove.userId}`, {
+        method: 'DELETE',
+        auth: true,
+      });
+
+      notify.success('Miembro eliminado del proyecto');
+      setMemberToRemove(null);
+      await load();
+    } catch {
+      const message = 'No se pudo eliminar el miembro';
+      setError(message);
+      notify.error(message);
+    } finally {
+      setTeamLoading(false);
+    }
+  };
+
+  const leaveProject = async () => {
+    if (!projectId || !currentUserId) return;
+
+    setTeamLoading(true);
+    setError('');
+
+    try {
+      await apiRequest(`/projects/${projectId}/members/leave`, {
+        method: 'POST',
+        auth: true,
+      });
+
+      notify.success('Has salido del proyecto');
+      navigate('/projects');
+    } catch {
+      const message = 'No se pudo salir del proyecto';
+      setError(message);
+      notify.error(message);
+    } finally {
+      setTeamLoading(false);
+    }
+  };
+
+  const transferOwnership = async () => {
+    if (!projectId || !memberToTransfer) return;
+
+    setTeamLoading(true);
+    setError('');
+
+    try {
+      await apiRequest(`/projects/${projectId}/ownership/transfer`, {
+        method: 'POST',
+        auth: true,
+        body: {
+          newOwnerUserId: memberToTransfer.userId,
+        },
+      });
+
+      notify.success('Ownership transferido correctamente');
+      setMemberToTransfer(null);
+      await load();
+    } catch {
+      const message = 'No se pudo transferir el ownership';
+      setError(message);
+      notify.error(message);
+    } finally {
+      setTeamLoading(false);
     }
   };
 
@@ -1425,6 +1607,25 @@ export function ProjectDetailPage() {
               />
             </div>
 
+            <div className={`${activeSection === 'team' ? 'block' : 'hidden'} mt-2`}>
+              <TeamSection
+                members={teamMembers}
+                currentUserId={currentUserId}
+                canManageTeam={canManageTeam}
+                memberEmail={memberEmail}
+                memberRole={memberRole}
+                loading={teamLoading}
+                canLeaveProject={canLeaveProject}
+                onMemberEmailChange={setMemberEmail}
+                onMemberRoleChange={setMemberRole}
+                onAddMember={onAddMember}
+                onUpdateMemberRole={onUpdateMemberRole}
+                onRequestRemoveMember={setMemberToRemove}
+                onRequestTransferOwnership={setMemberToTransfer}
+                onLeaveProject={leaveProject}
+              />
+            </div>
+
             <div className={`${activeSection === 'languages' ? 'block' : 'hidden'} mt-2`}>
               <LanguagesSection
                 languages={languages}
@@ -1609,6 +1810,25 @@ export function ProjectDetailPage() {
           description={`Vas a eliminar ${languageToDelete?.name ?? 'este idioma'} (${languageToDelete?.code ?? ''}). Se eliminaran sus traducciones asociadas y, si era referencia, el proyecto quedara sin idioma de referencia.`}
           confirmLabel="Eliminar idioma"
           onConfirm={removeLanguage}
+        />
+
+        <ConfirmModal
+          open={Boolean(memberToRemove)}
+          onOpenChange={(open) => !open && setMemberToRemove(null)}
+          title="Eliminar miembro"
+          description={`Vas a eliminar a ${memberToRemove?.name ?? 'este miembro'} (${memberToRemove?.email ?? ''}) del proyecto.`}
+          confirmLabel="Eliminar miembro"
+          onConfirm={removeMember}
+        />
+
+        <ConfirmModal
+          open={Boolean(memberToTransfer)}
+          onOpenChange={(open) => !open && setMemberToTransfer(null)}
+          title="Transferir ownership"
+          description={`Vas a transferir el ownership a ${memberToTransfer?.name ?? 'este miembro'} (${memberToTransfer?.email ?? ''}). Dejaras de tener permisos de owner.`}
+          confirmLabel="Transferir ownership"
+          confirmVariant="default"
+          onConfirm={transferOwnership}
         />
 
         <ConfirmModal

@@ -91,7 +91,12 @@ npm run format
 - `GET /projects`
 - `GET /projects/:id`
 - `PATCH /projects/:id`
-- `POST /projects/:id/members`
+- `POST /projects/:id/members` (add by email)
+- `GET /projects/:id/members`
+- `PATCH /projects/:id/members/:userId`
+- `DELETE /projects/:id/members/:userId`
+- `POST /projects/:id/members/leave`
+- `POST /projects/:id/ownership/transfer`
 - `POST /projects/:projectId/languages`
 - `GET /projects/:projectId/languages`
 - `PATCH /projects/:projectId/languages/reference`

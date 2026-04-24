@@ -1,9 +1,9 @@
 import { ProjectRole } from '@prisma/client';
-import { IsEnum, IsUUID } from 'class-validator';
+import { IsEmail, IsEnum } from 'class-validator';
 
 export class AddProjectMemberDto {
-  @IsUUID()
-  userId!: string;
+  @IsEmail()
+  email!: string;
 
   @IsEnum(ProjectRole)
   role!: ProjectRole;
