@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import { ArrowLeft, Bot, FilePenLine, FileSearch, FileUp, Languages, Star, Users } from 'lucide-react';
 import type { ChangeEvent, DragEvent, FormEvent, ReactNode } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { AiContextSection } from '../components/project-detail/AiContextSection';
@@ -29,6 +29,7 @@ import type {
   AiBatchSuggestionsResponse,
   AiContextSettingsResponse,
   AiGlossaryEntry,
+  AnalysisIssue,
   AnalysisReport,
   IngestResponse,
   IssueType,
@@ -245,6 +246,7 @@ export function ProjectDetailPage() {
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [expandedIssueId, setExpandedIssueId] = useState<string | null>(null);
   const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
+  const [persistedResolvedIds, setPersistedResolvedIds] = useState<Set<string>>(new Set());
   const [highlightedIssuePath, setHighlightedIssuePath] = useState<string | null>(null);
   const [highlightedRawLine, setHighlightedRawLine] = useState<number | null>(null);
   const [reportGroupByReportId, setReportGroupByReportId] = useState<Record<string, string>>({});
@@ -300,6 +302,7 @@ export function ProjectDetailPage() {
   };
 
   const currentUserId = getCurrentUserId();
+  const isPro = getCurrentUserTier() === 'PRO';
   const canManageTeam = Boolean(project && currentUserId && project.ownerId === currentUserId);
   const canLeaveProject = Boolean(project && currentUserId && project.ownerId !== currentUserId);
 
@@ -771,6 +774,14 @@ export function ProjectDetailPage() {
 
     const initialVisualQuery = options?.initialVisualQuery ?? '';
 
+    if (editorFileMeta) {
+      setPersistedResolvedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of resolvedIssueIds) next.add(id);
+        return next;
+      });
+    }
+
     setEditorBusy(true);
     try {
       const file = await apiRequest<TranslationFileDetail>(
@@ -788,17 +799,19 @@ export function ProjectDetailPage() {
       setCloneConfirmOpen(false);
       setAiSuggestions([]);
 
-      setEditorVersionsLoading(true);
-      try {
-        const versions = await apiRequest<TranslationFileVersionSummary[]>(
-          `/projects/${projectId}/translation-files/${file.id}/versions`,
-          { auth: true },
-        );
-        setEditorVersions(versions);
-      } catch {
-        setEditorVersions([]);
-      } finally {
-        setEditorVersionsLoading(false);
+      if (isPro) {
+        setEditorVersionsLoading(true);
+        try {
+          const versions = await apiRequest<TranslationFileVersionSummary[]>(
+            `/projects/${projectId}/translation-files/${file.id}/versions`,
+            { auth: true },
+          );
+          setEditorVersions(versions);
+        } catch {
+          setEditorVersions([]);
+        } finally {
+          setEditorVersionsLoading(false);
+        }
       }
 
       if (!options?.skipNotify) {
@@ -875,14 +888,16 @@ export function ProjectDetailPage() {
       setEditorVisualEntries(extractStringEntries(updated.content));
       setEditorJson(JSON.stringify(updated.content, null, 2));
 
-      try {
-        const versions = await apiRequest<TranslationFileVersionSummary[]>(
-          `/projects/${projectId}/translation-files/${editorFileId}/versions`,
-          { auth: true },
-        );
-        setEditorVersions(versions);
-      } catch {
-        setEditorVersions([]);
+      if (isPro) {
+        try {
+          const versions = await apiRequest<TranslationFileVersionSummary[]>(
+            `/projects/${projectId}/translation-files/${editorFileId}/versions`,
+            { auth: true },
+          );
+          setEditorVersions(versions);
+        } catch {
+          setEditorVersions([]);
+        }
       }
 
       notify.success('Archivo guardado correctamente');
@@ -1088,6 +1103,7 @@ export function ProjectDetailPage() {
       setIssueLanguageFilter('ALL');
       setExpandedIssueId(null);
       setActiveIssueId(null);
+      setPersistedResolvedIds(new Set());
       notify.success(`Análisis completado: ${result.issuesCreated} issue(s) en ${result.reportsCreated} reporte(s)`);
     } catch {
       const message = 'No se pudo ejecutar el análisis';
@@ -1139,7 +1155,32 @@ export function ProjectDetailPage() {
     return a.key.localeCompare(b.key, 'es');
   });
 
-  const activeIssueIndex = sortedFilteredIssues.findIndex((issue) => issue.id === activeIssueId);
+  const resolvedIssueIds = useMemo<Set<string>>(() => {
+    const resolved = new Set<string>(persistedResolvedIds);
+    if (!editorFileMeta) return resolved;
+
+    let entries = editorVisualEntries;
+    if (editorMode === 'RAW') {
+      try {
+        entries = extractStringEntries(JSON.parse(editorJson) as Record<string, unknown>);
+      } catch {
+        // fallback to visual entries
+      }
+    }
+
+    const currentMap = new Map(entries.map((e) => [e.path, e.value]));
+    for (const issue of sortedFilteredIssues as AnalysisIssue[]) {
+      const fileGroupId = reportGroupByReportId[issue.reportId];
+      if (issue.languageId !== editorFileMeta.language.id || fileGroupId !== editorFileMeta.fileGroup.id) continue;
+      if (issue.type === 'MISSING_KEY') {
+        const val = currentMap.get(issue.key);
+        if (val !== undefined && val.trim() !== '') resolved.add(issue.id);
+      } else if (issue.type === 'UNUSED_KEY') {
+        if (!currentMap.has(issue.key)) resolved.add(issue.id);
+      }
+    }
+    return resolved;
+  }, [persistedResolvedIds, editorFileMeta, editorMode, editorVisualEntries, editorJson, sortedFilteredIssues, reportGroupByReportId]);
 
   const formatIssueDetails = (details: AnalysisReport['issues'][number]['details']) => {
     if (!details) {
@@ -1259,25 +1300,6 @@ export function ProjectDetailPage() {
     );
   };
 
-  const goToPreviousIssue = () => {
-    if (sortedFilteredIssues.length === 0) {
-      return;
-    }
-
-    const startIndex = activeIssueIndex >= 0 ? activeIssueIndex : 0;
-    const nextIndex = (startIndex - 1 + sortedFilteredIssues.length) % sortedFilteredIssues.length;
-    void goToIssueInEditor(sortedFilteredIssues[nextIndex]);
-  };
-
-  const goToNextIssue = () => {
-    if (sortedFilteredIssues.length === 0) {
-      return;
-    }
-
-    const startIndex = activeIssueIndex >= 0 ? activeIssueIndex : -1;
-    const nextIndex = (startIndex + 1 + sortedFilteredIssues.length) % sortedFilteredIssues.length;
-    void goToIssueInEditor(sortedFilteredIssues[nextIndex]);
-  };
 
   const restoreEditorVersion = async (versionId: string) => {
     if (!projectId || !editorFileId) {
@@ -1716,10 +1738,13 @@ export function ProjectDetailPage() {
                   void cloneEditorFileToLanguage(true);
                 }}
                 onRequestCopyContent={() => setCloneConfirmOpen(true)}
-                currentIssueIndex={activeIssueIndex}
-                totalIssues={sortedFilteredIssues.length}
-                onGoToPreviousIssue={goToPreviousIssue}
-                onGoToNextIssue={goToNextIssue}
+                sortedIssues={sortedFilteredIssues}
+                activeIssueId={activeIssueId}
+                resolvedIssueIds={resolvedIssueIds}
+                languageNameById={languageNameById}
+                onGoToIssue={goToIssueInEditor}
+                isPro={isPro}
+                onVersionHistoryProGate={() => setProModalOpen(true)}
                 versions={editorVersions}
                 versionsLoading={editorVersionsLoading}
                 onRestoreVersion={restoreEditorVersion}
@@ -1739,6 +1764,7 @@ export function ProjectDetailPage() {
 
             <div className={`${activeSection === 'ai-context' ? 'block' : 'hidden'} mt-2`}>
               <AiContextSection
+                isPro={isPro}
                 aiContext={aiContext}
                 contextSaving={aiContextSaving}
                 onAiContextChange={setAiContext}
@@ -1846,10 +1872,11 @@ export function ProjectDetailPage() {
         <Dialog open={proModalOpen} onOpenChange={setProModalOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Función disponible para usuarios PRO</DialogTitle>
+              <DialogTitle>Función exclusiva de cuentas PRO</DialogTitle>
               <DialogDescription>
-                Las sugerencias con IA solo están disponibles para cuentas PRO. Puedes seguir usando análisis, editor y
-                exportaciones con tu cuenta actual.
+                Las sugerencias con IA, el contexto de traducción y el historial de versiones son funciones
+                exclusivas de cuentas PRO. Con tu cuenta actual puedes usar el análisis completo, el editor y
+                las exportaciones sin límite.
               </DialogDescription>
             </DialogHeader>
 

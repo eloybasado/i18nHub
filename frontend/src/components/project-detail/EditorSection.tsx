@@ -15,14 +15,14 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { Language, TranslationFileSummary, TranslationFileVersionSummary } from '../../lib/types';
+import type { AnalysisIssue, Language, TranslationFileSummary, TranslationFileVersionSummary } from '../../lib/types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { SelectModal, type SelectModalOption } from '../ui/select-modal';
 import { AiSuggestionReviewList } from './AiSuggestionReviewList';
 import { CloneToLanguageWizardModal } from './CloneToLanguageWizardModal';
 import { EditorFilePickerModal } from './EditorFilePickerModal';
-import { IssuePager } from './IssuePager';
+import { EditorIssueList } from './EditorIssueList';
 import { VersionHistoryModal } from './VersionHistoryModal';
 
 type EditorVisualEntry = {
@@ -121,10 +121,11 @@ type EditorSectionProps = {
   onCloneModeChange: (mode: CloneMode) => void;
   onCloneEmptyStructure: () => void;
   onRequestCopyContent: () => void;
-  currentIssueIndex: number;
-  totalIssues: number;
-  onGoToPreviousIssue: () => void;
-  onGoToNextIssue: () => void;
+  sortedIssues: AnalysisIssue[];
+  activeIssueId: string | null;
+  resolvedIssueIds: Set<string>;
+  languageNameById: Map<string, { name: string; code: string }>;
+  onGoToIssue: (issue: AnalysisIssue) => void;
   versions: TranslationFileVersionSummary[];
   versionsLoading: boolean;
   onRestoreVersion: (versionId: string) => void | Promise<void>;
@@ -139,6 +140,8 @@ type EditorSectionProps = {
   onSelectAllAiSuggestions: () => void;
   onClearAiSuggestions: () => void;
   onApplySelectedAiSuggestions: () => void;
+  isPro: boolean;
+  onVersionHistoryProGate: () => void;
 };
 
 export function EditorSection({
@@ -172,10 +175,11 @@ export function EditorSection({
   onCloneModeChange,
   onCloneEmptyStructure,
   onRequestCopyContent,
-  currentIssueIndex,
-  totalIssues,
-  onGoToPreviousIssue,
-  onGoToNextIssue,
+  sortedIssues,
+  activeIssueId,
+  resolvedIssueIds,
+  languageNameById,
+  onGoToIssue,
   versions,
   versionsLoading,
   onRestoreVersion,
@@ -190,6 +194,8 @@ export function EditorSection({
   onSelectAllAiSuggestions,
   onClearAiSuggestions,
   onApplySelectedAiSuggestions,
+  isPro,
+  onVersionHistoryProGate,
 }: EditorSectionProps) {
   const rawEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [rawExpanded, setRawExpanded] = useState(false);
@@ -311,13 +317,6 @@ export function EditorSection({
         </p>
 
         <div className="flex flex-wrap items-center gap-2">
-          <IssuePager
-            currentIssueIndex={currentIssueIndex}
-            totalIssues={totalIssues}
-            onGoToPreviousIssue={onGoToPreviousIssue}
-            onGoToNextIssue={onGoToNextIssue}
-          />
-
           <Button
             type="button"
             className="border-amber-300 bg-amber-100 text-amber-900 shadow-sm hover:bg-amber-200"
@@ -344,6 +343,8 @@ export function EditorSection({
             versionsLoading={versionsLoading}
             onRestoreVersion={onRestoreVersion}
             disabled={!editorFileId || editorBusy}
+            isPro={isPro}
+            onProGate={onVersionHistoryProGate}
           />
 
           <div className="group relative">
@@ -362,9 +363,24 @@ export function EditorSection({
         </div>
       </div>
 
+      <EditorIssueList
+        issues={sortedIssues}
+        activeIssueId={activeIssueId}
+        resolvedIssueIds={resolvedIssueIds}
+        languageNameById={languageNameById}
+        onGoToIssue={onGoToIssue}
+      />
+
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <div className="min-w-[220px] flex-1">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">Asistente IA</p>
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Asistente IA
+            {!isPro && (
+              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                PRO
+              </span>
+            )}
+          </p>
           <SelectModal
             value={aiSuggestionScope}
             options={AI_SUGGESTION_SCOPE_OPTIONS}
@@ -401,6 +417,11 @@ export function EditorSection({
         >
           <Bot size={14} className="mr-1.5" />
           {aiSuggestBusy ? 'Sugiriendo...' : 'Sugerir IA'}
+          {!isPro && (
+            <span className="ml-1.5 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+              PRO
+            </span>
+          )}
         </Button>
       </div>
 

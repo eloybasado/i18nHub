@@ -8,6 +8,8 @@ type VersionHistoryModalProps = {
   versionsLoading: boolean;
   onRestoreVersion: (versionId: string) => void | Promise<void>;
   disabled?: boolean;
+  isPro?: boolean;
+  onProGate?: () => void;
 };
 
 export function VersionHistoryModal({
@@ -15,7 +17,21 @@ export function VersionHistoryModal({
   versionsLoading,
   onRestoreVersion,
   disabled,
+  isPro = true,
+  onProGate,
 }: VersionHistoryModalProps) {
+  if (!isPro) {
+    return (
+      <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={onProGate}>
+        <FileClock size={14} className="mr-1.5" />
+        Historial versiones
+        <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+          PRO
+        </span>
+      </Button>
+    );
+  }
+
   return (
     <Dialog>
       <DialogTrigger asChild>
