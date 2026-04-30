@@ -160,6 +160,23 @@ const setStringByPath = (target: unknown, path: string, value: string): void => 
   }
 };
 
+const deleteKeyByPath = (obj: Record<string, unknown>, path: string): void => {
+  const parts = path.split('.');
+  let cursor: unknown = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (!cursor || typeof cursor !== 'object') return;
+    const key = parts[i];
+    cursor = Array.isArray(cursor) ? (cursor as unknown[])[Number(key)] : (cursor as Record<string, unknown>)[key];
+  }
+  if (!cursor || typeof cursor !== 'object') return;
+  const lastKey = parts[parts.length - 1];
+  if (Array.isArray(cursor)) {
+    (cursor as unknown[]).splice(Number(lastKey), 1);
+  } else {
+    delete (cursor as Record<string, unknown>)[lastKey];
+  }
+};
+
 const buildVisualContent = (baseContent: Record<string, unknown>, entries: VisualEntry[]) => {
   const cloned = JSON.parse(JSON.stringify(baseContent)) as Record<string, unknown>;
   entries.forEach((entry) => {
@@ -223,7 +240,9 @@ export function ProjectDetailPage() {
   const [languageActionBusy, setLanguageActionBusy] = useState(false);
   const [editorFileId, setEditorFileId] = useState<string | null>(null);
   const [editorFileMeta, setEditorFileMeta] = useState<TranslationFileSummary | null>(null);
-  const [editorMode, setEditorMode] = useState<'RAW' | 'VISUAL'>('RAW');
+  const [editorMode, setEditorMode] = useState<'RAW' | 'VISUAL' | 'TREE'>('RAW');
+  const [editorReferenceEntries, setEditorReferenceEntries] = useState<VisualEntry[] | null>(null);
+  const [showReferenceOverlay, setShowReferenceOverlay] = useState(true);
   const [editorSourceContent, setEditorSourceContent] = useState<Record<string, unknown> | null>(null);
   const [editorVisualEntries, setEditorVisualEntries] = useState<VisualEntry[]>([]);
   const [editorVisualQuery, setEditorVisualQuery] = useState('');
@@ -799,6 +818,28 @@ export function ProjectDetailPage() {
       setCloneConfirmOpen(false);
       setAiSuggestions([]);
 
+      const refLangId = project?.referenceLanguageId;
+      if (refLangId && refLangId !== file.language.id) {
+        const refFile = translationFiles.find(
+          (f) => f.language.id === refLangId && f.fileGroup.id === file.fileGroup.id,
+        );
+        if (refFile) {
+          try {
+            const refDetail = await apiRequest<TranslationFileDetail>(
+              `/projects/${projectId}/translation-files/${refFile.id}`,
+              { auth: true },
+            );
+            setEditorReferenceEntries(extractStringEntries(refDetail.content));
+          } catch {
+            setEditorReferenceEntries(null);
+          }
+        } else {
+          setEditorReferenceEntries(null);
+        }
+      } else {
+        setEditorReferenceEntries(null);
+      }
+
       if (isPro) {
         setEditorVersionsLoading(true);
         try {
@@ -1029,8 +1070,8 @@ export function ProjectDetailPage() {
     return entry.path.toLowerCase().includes(q) || entry.value.toLowerCase().includes(q);
   });
 
-  const onChangeEditorMode = (mode: 'RAW' | 'VISUAL') => {
-    if (mode === 'VISUAL') {
+  const onChangeEditorMode = (mode: 'RAW' | 'VISUAL' | 'TREE') => {
+    if (mode === 'VISUAL' || mode === 'TREE') {
       try {
         const parsed = JSON.parse(editorJson) as Record<string, unknown>;
         setEditorSourceContent(parsed);
@@ -1181,6 +1222,14 @@ export function ProjectDetailPage() {
     }
     return resolved;
   }, [persistedResolvedIds, editorFileMeta, editorMode, editorVisualEntries, editorJson, sortedFilteredIssues, reportGroupByReportId]);
+
+  const currentFileIssues = useMemo(() => {
+    if (!editorFileMeta) return [];
+    return sortedFilteredIssues.filter((issue) => {
+      const fileGroupId = reportGroupByReportId[issue.reportId];
+      return issue.languageId === editorFileMeta.language.id && fileGroupId === editorFileMeta.fileGroup.id;
+    });
+  }, [editorFileMeta, sortedFilteredIssues, reportGroupByReportId]);
 
   const formatIssueDetails = (details: AnalysisReport['issues'][number]['details']) => {
     if (!details) {
@@ -1499,6 +1548,24 @@ export function ProjectDetailPage() {
     setAiSuggestions([]);
   };
 
+  const addEntry = (path: string, value: string) => {
+    if (!editorSourceContent) return;
+    const current = buildVisualContent(editorSourceContent, editorVisualEntries);
+    setStringByPath(current, path, value);
+    setEditorSourceContent(current);
+    setEditorVisualEntries(extractStringEntries(current));
+    setEditorJson(JSON.stringify(current, null, 2));
+  };
+
+  const deleteEntry = (path: string) => {
+    if (!editorSourceContent) return;
+    const current = buildVisualContent(editorSourceContent, editorVisualEntries);
+    deleteKeyByPath(current, path);
+    setEditorSourceContent(current);
+    setEditorVisualEntries(extractStringEntries(current));
+    setEditorJson(JSON.stringify(current, null, 2));
+  };
+
   const applySelectedAiSuggestions = () => {
     if (aiSuggestions.length === 0) {
       notify.error('No hay sugerencias IA para aplicar');
@@ -1759,6 +1826,13 @@ export function ProjectDetailPage() {
                 onSelectAllAiSuggestions={selectAllAiSuggestions}
                 onClearAiSuggestions={clearAiSuggestions}
                 onApplySelectedAiSuggestions={applySelectedAiSuggestions}
+                editorVisualEntries={editorVisualEntries}
+                treeReferenceEntries={editorReferenceEntries}
+                showReferenceOverlay={showReferenceOverlay}
+                onShowReferenceOverlayChange={setShowReferenceOverlay}
+                currentFileIssues={currentFileIssues}
+                onAddEntry={addEntry}
+                onDeleteEntry={deleteEntry}
               />
             </div>
 

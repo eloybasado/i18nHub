@@ -4,14 +4,19 @@ import {
   Braces,
   CircleHelp,
   Download,
+  Eye,
+  EyeOff,
   FilePenLine,
   FileSearch,
   Files,
   ListFilter,
   Maximize2,
   Minimize2,
+  Network,
+  Plus,
   Search,
   SearchCheck,
+  Trash2,
   TriangleAlert,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -19,10 +24,12 @@ import type { AnalysisIssue, Language, TranslationFileSummary, TranslationFileVe
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { SelectModal, type SelectModalOption } from '../ui/select-modal';
+import { ConfirmModal } from '../ui/confirm-modal';
 import { AiSuggestionReviewList } from './AiSuggestionReviewList';
 import { CloneToLanguageWizardModal } from './CloneToLanguageWizardModal';
 import { EditorFilePickerModal } from './EditorFilePickerModal';
 import { EditorIssueList } from './EditorIssueList';
+import { JsonTreeEditor } from './JsonTreeEditor';
 import { VersionHistoryModal } from './VersionHistoryModal';
 
 type EditorVisualEntry = {
@@ -94,9 +101,10 @@ type EditorSectionProps = {
   translationFiles: TranslationFileSummary[];
   editorFileId: string | null;
   editorFileMeta: TranslationFileSummary | null;
-  editorMode: 'RAW' | 'VISUAL';
+  editorMode: 'RAW' | 'VISUAL' | 'TREE';
   editorBusy: boolean;
   editorJson: string;
+  editorVisualEntries: EditorVisualEntry[];
   editorVisualQuery: string;
   highlightedVisualPath?: string | null;
   highlightedRawLine?: number | null;
@@ -110,7 +118,7 @@ type EditorSectionProps = {
   downloadBusy: boolean;
   onSelectEditorFile: (fileId: string) => void;
   onResetEditorSelection: () => void;
-  onChangeEditorMode: (mode: 'RAW' | 'VISUAL') => void;
+  onChangeEditorMode: (mode: 'RAW' | 'VISUAL' | 'TREE') => void;
   onSaveEditorFile: () => void | Promise<void>;
   onEditorJsonChange: (value: string) => void;
   onEditorVisualQueryChange: (value: string) => void;
@@ -126,6 +134,10 @@ type EditorSectionProps = {
   resolvedIssueIds: Set<string>;
   languageNameById: Map<string, { name: string; code: string }>;
   onGoToIssue: (issue: AnalysisIssue) => void;
+  treeReferenceEntries: EditorVisualEntry[] | null;
+  showReferenceOverlay: boolean;
+  onShowReferenceOverlayChange: (show: boolean) => void;
+  currentFileIssues: AnalysisIssue[];
   versions: TranslationFileVersionSummary[];
   versionsLoading: boolean;
   onRestoreVersion: (versionId: string) => void | Promise<void>;
@@ -142,6 +154,8 @@ type EditorSectionProps = {
   onApplySelectedAiSuggestions: () => void;
   isPro: boolean;
   onVersionHistoryProGate: () => void;
+  onAddEntry: (path: string, value: string) => void;
+  onDeleteEntry: (path: string) => void;
 };
 
 export function EditorSection({
@@ -151,6 +165,7 @@ export function EditorSection({
   editorMode,
   editorBusy,
   editorJson,
+  editorVisualEntries,
   editorVisualQuery,
   highlightedVisualPath,
   highlightedRawLine,
@@ -180,6 +195,10 @@ export function EditorSection({
   resolvedIssueIds,
   languageNameById,
   onGoToIssue,
+  treeReferenceEntries,
+  showReferenceOverlay,
+  onShowReferenceOverlayChange,
+  currentFileIssues,
   versions,
   versionsLoading,
   onRestoreVersion,
@@ -196,10 +215,16 @@ export function EditorSection({
   onApplySelectedAiSuggestions,
   isPro,
   onVersionHistoryProGate,
+  onAddEntry,
+  onDeleteEntry,
 }: EditorSectionProps) {
   const rawEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [rawExpanded, setRawExpanded] = useState(false);
   const [visualSearchInput, setVisualSearchInput] = useState(editorVisualQuery);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addPath, setAddPath] = useState('');
+  const [addValue, setAddValue] = useState('');
+  const [deletingPath, setDeletingPath] = useState<string | null>(null);
   const visualHighlightFocusedPathRef = useRef<string | null>(null);
   const rawHighlightInteractedRef = useRef(false);
 
@@ -271,11 +296,11 @@ export function EditorSection({
         <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Paso 2</p>
           <p className="mt-1 text-sm font-semibold text-zinc-900">Modo de edición</p>
-          <p className="mt-1 text-xs text-zinc-500">Elige entre edición RAW o visual.</p>
-          <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-1.5">
+          <p className="mt-1 text-xs text-zinc-500">Elige entre edición RAW, visual o árbol.</p>
+          <div className="mt-3 grid grid-cols-3 gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50 p-1.5">
             <button
               type="button"
-              className={`rounded px-3 py-2 text-sm font-medium transition-colors ${
+              className={`rounded px-2 py-2 text-xs font-medium transition-colors ${
                 editorMode === 'RAW' ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
               }`}
               onClick={() => onChangeEditorMode('RAW')}
@@ -284,12 +309,22 @@ export function EditorSection({
             </button>
             <button
               type="button"
-              className={`rounded px-3 py-2 text-sm font-medium transition-colors ${
+              className={`rounded px-2 py-2 text-xs font-medium transition-colors ${
                 editorMode === 'VISUAL' ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
               }`}
               onClick={() => onChangeEditorMode('VISUAL')}
             >
               Visual
+            </button>
+            <button
+              type="button"
+              className={`inline-flex items-center justify-center gap-1 rounded px-2 py-2 text-xs font-medium transition-colors ${
+                editorMode === 'TREE' ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
+              }`}
+              onClick={() => onChangeEditorMode('TREE')}
+            >
+              <Network size={11} />
+              Árbol
             </button>
           </div>
         </div>
@@ -433,7 +468,36 @@ export function EditorSection({
         onApplySelectedAiSuggestions={onApplySelectedAiSuggestions}
       />
 
-      {editorMode === 'RAW' ? (
+      {editorMode === 'TREE' ? (
+        <div className="mt-3">
+          {treeReferenceEntries && treeReferenceEntries.length > 0 && (
+            <div className="mb-2 flex items-center justify-end">
+              <button
+                type="button"
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  showReferenceOverlay
+                    ? 'border-zinc-700 bg-zinc-900 text-white'
+                    : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50'
+                }`}
+                onClick={() => onShowReferenceOverlayChange(!showReferenceOverlay)}
+              >
+                {showReferenceOverlay ? <Eye size={12} /> : <EyeOff size={12} />}
+                Superponer referencia
+              </button>
+            </div>
+          )}
+          <JsonTreeEditor
+            entries={editorVisualEntries}
+            referenceEntries={treeReferenceEntries}
+            showReference={showReferenceOverlay}
+            issues={currentFileIssues}
+            resolvedIssueIds={resolvedIssueIds}
+            onUpdateEntry={onEditorVisualEntryChange}
+            onAddEntry={onAddEntry}
+            onDeleteEntry={onDeleteEntry}
+          />
+        </div>
+      ) : editorMode === 'RAW' ? (
         rawExpanded ? (
           <div className="fixed inset-0 z-50 bg-white">
             <div className="flex h-full w-full flex-col bg-white px-4 py-4 sm:px-6 sm:py-5">
@@ -562,38 +626,97 @@ export function EditorSection({
             ) : (
               <div className="space-y-4">
                 {filteredVisualEntries.map((entry) => (
-                  <label
+                  <div
                     key={entry.path}
                     id={`visual-entry-${entry.path}`}
-                    className={`block rounded-md border-b border-zinc-200 pb-4 ${
+                    className={`flex items-start gap-2 rounded-md border-b border-zinc-200 pb-4 ${
                       highlightedVisualPath === entry.path ? 'border-l-4 border-l-amber-400 bg-amber-50/70 px-2' : ''
                     }`}
                   >
-                    <span className="inline-flex rounded bg-zinc-100 px-2 py-1 font-mono text-sm font-semibold text-zinc-800">
-                      {entry.path}
-                    </span>
-                    <textarea
-                      className="mt-2 min-h-[110px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base leading-relaxed text-zinc-900 outline-none focus:border-zinc-500"
-                      value={entry.value}
-                      onChange={(event) => onEditorVisualEntryChange(entry.path, event.target.value)}
-                      onFocus={() => {
-                        if (highlightedVisualPath === entry.path) {
-                          visualHighlightFocusedPathRef.current = entry.path;
-                        }
-                      }}
-                      onBlur={() => {
-                        if (visualHighlightFocusedPathRef.current === entry.path) {
-                          visualHighlightFocusedPathRef.current = null;
-                          onDismissHighlightedVisualPath();
-                        }
-                      }}
-                      disabled={!editorFileId}
-                    />
-                  </label>
+                    <label className="flex-1">
+                      <span className="inline-flex rounded bg-zinc-100 px-2 py-1 font-mono text-sm font-semibold text-zinc-800">
+                        {entry.path}
+                      </span>
+                      <textarea
+                        className="mt-2 min-h-[110px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base leading-relaxed text-zinc-900 outline-none focus:border-zinc-500"
+                        value={entry.value}
+                        onChange={(event) => onEditorVisualEntryChange(entry.path, event.target.value)}
+                        onFocus={() => {
+                          if (highlightedVisualPath === entry.path) {
+                            visualHighlightFocusedPathRef.current = entry.path;
+                          }
+                        }}
+                        onBlur={() => {
+                          if (visualHighlightFocusedPathRef.current === entry.path) {
+                            visualHighlightFocusedPathRef.current = null;
+                            onDismissHighlightedVisualPath();
+                          }
+                        }}
+                        disabled={!editorFileId}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="mt-1 shrink-0 rounded p-1.5 text-zinc-300 hover:bg-red-50 hover:text-red-500"
+                      onClick={() => setDeletingPath(entry.path)}
+                      title="Eliminar clave"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
           </div>
+
+          {editorFileId && (
+            showAddForm ? (
+              <div className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Nueva clave</p>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    value={addPath}
+                    onChange={(e) => setAddPath(e.target.value)}
+                    placeholder="ej: auth.login"
+                    className="flex-1"
+                  />
+                  <Input
+                    value={addValue}
+                    onChange={(e) => setAddValue(e.target.value)}
+                    placeholder="valor de traducción"
+                    className="flex-1"
+                  />
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <Button
+                    size="sm"
+                    disabled={!addPath.trim()}
+                    onClick={() => {
+                      if (!addPath.trim()) return;
+                      onAddEntry(addPath.trim(), addValue);
+                      setShowAddForm(false);
+                      setAddPath('');
+                      setAddValue('');
+                    }}
+                  >
+                    Añadir
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setShowAddForm(false); setAddPath(''); setAddValue(''); }}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setShowAddForm(true)}>
+                <Plus size={13} className="mr-1.5" />
+                Añadir clave
+              </Button>
+            )
+          )}
         </div>
       )}
 
@@ -618,6 +741,15 @@ export function EditorSection({
       </div>
 
       <div className="mt-5 border-t border-zinc-200 pt-4" />
+
+      <ConfirmModal
+        open={Boolean(deletingPath)}
+        onOpenChange={(open) => !open && setDeletingPath(null)}
+        title="Eliminar clave"
+        description={`Vas a eliminar "${deletingPath ?? ''}". Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        onConfirm={() => { onDeleteEntry(deletingPath!); setDeletingPath(null); }}
+      />
     </div>
   );
 }
