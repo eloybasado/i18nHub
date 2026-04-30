@@ -1547,9 +1547,7 @@ export function ProjectDetailPage() {
           const source = limited.find((candidate) => candidate.key === item.key);
           const targetFile = source?.fileGroupId
             ? translationFiles.find(
-                (file) =>
-                  file.language.id === editorFileMeta.language.id &&
-                  file.fileGroup.id === source.fileGroupId,
+                (file) => file.language.id === editorFileMeta.language.id && file.fileGroup.id === source.fileGroupId,
               )
             : null;
           const sameFileGroup = source?.fileGroupId === editorFileMeta.fileGroup.id;
@@ -1723,9 +1721,7 @@ export function ProjectDetailPage() {
       setAiSuggestions([]);
 
       if (appliedSummary.length > 0) {
-        const summaryText = appliedSummary
-          .map((entry) => `${entry.filename}: ${entry.count} issue(s)`)
-          .join(' · ');
+        const summaryText = appliedSummary.map((entry) => `${entry.filename}: ${entry.count} issue(s)`).join(' · ');
         notify.success(`Sugerencias IA aplicadas y guardadas: ${summaryText}`);
         await load();
       }
