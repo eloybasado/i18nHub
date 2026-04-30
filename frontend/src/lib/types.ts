@@ -87,7 +87,7 @@ export type TranslationFileVersionSummary = {
   };
 };
 
-export type IssueType = 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH';
+export type IssueType = 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH' | 'INCORRECT_NESTING';
 
 export type AnalysisIssue = {
   id: string;

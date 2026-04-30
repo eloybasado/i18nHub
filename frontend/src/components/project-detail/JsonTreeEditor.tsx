@@ -29,7 +29,12 @@ type TreeNode =
   | { kind: 'leaf'; key: string; path: string; value: string }
   | { kind: 'group'; key: string; path: string; children: TreeNode[] };
 
-type EditingState = { path: string; value: string; referenceValue: string | undefined; issue: AnalysisIssue | undefined };
+type EditingState = {
+  path: string;
+  value: string;
+  referenceValue: string | undefined;
+  issue: AnalysisIssue | undefined;
+};
 type AddingState = { parentPath: string };
 type DeletingState = { path: string };
 
@@ -70,16 +75,19 @@ const ISSUE_BORDER: Record<IssueType, string> = {
   MISSING_KEY: 'border-red-300 bg-red-50/60',
   UNUSED_KEY: 'border-yellow-300 bg-yellow-50/60',
   INTERPOLATION_MISMATCH: 'border-orange-300 bg-orange-50/60',
+  INCORRECT_NESTING: 'border-amber-300 bg-amber-50/60',
 };
 const ISSUE_BADGE: Record<IssueType, string> = {
   MISSING_KEY: 'bg-red-100 text-red-700',
   UNUSED_KEY: 'bg-yellow-100 text-yellow-700',
   INTERPOLATION_MISMATCH: 'bg-orange-100 text-orange-700',
+  INCORRECT_NESTING: 'bg-amber-100 text-amber-700',
 };
 const ISSUE_LABEL: Record<IssueType, string> = {
   MISSING_KEY: 'Falta',
   UNUSED_KEY: 'Extra',
   INTERPOLATION_MISMATCH: 'Interpolación',
+  INCORRECT_NESTING: 'Anidado',
 };
 
 // ─── Custom nodes ─────────────────────────────────────────────────────────────
@@ -95,7 +103,10 @@ const JsonRootNode = memo(({ data }: NodeProps) => {
         type="button"
         className="ml-auto rounded p-0.5 text-zinc-400 hover:bg-zinc-700 hover:text-white"
         onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); onAdd(); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onAdd();
+        }}
         title="Añadir clave"
       >
         <Plus size={12} />
@@ -106,19 +117,19 @@ const JsonRootNode = memo(({ data }: NodeProps) => {
 JsonRootNode.displayName = 'JsonRootNode';
 
 const JsonGroupNode = memo(({ data }: NodeProps) => {
-  const { label, childCount, issueCount, onAdd, onDelete } = data as {
+  const { label, childCount, issueCount, onAdd, onDelete, hasIncorrectNesting } = data as {
     label: string;
     childCount: number;
     issueCount: number;
+    hasIncorrectNesting?: boolean;
     onAdd: () => void;
     onDelete: () => void;
   };
+  let borderClass = 'border-zinc-200';
+  if (hasIncorrectNesting) borderClass = 'border-amber-300';
+  else if (issueCount > 0) borderClass = 'border-red-200';
   return (
-    <div
-      className={`flex items-center gap-2 rounded-lg border-2 bg-white px-3 py-2.5 shadow-sm ${
-        issueCount > 0 ? 'border-red-200' : 'border-zinc-200'
-      }`}
-    >
+    <div className={`flex items-center gap-2 rounded-lg border-2 bg-white px-3 py-2.5 shadow-sm ${borderClass}`}>
       <Handle type="target" position={Position.Left} style={{ background: '#d4d4d8', width: 8, height: 8 }} />
       <span className="font-mono text-sm font-semibold text-zinc-700">{label}</span>
       <span className="text-xs text-zinc-400">{childCount}</span>
@@ -132,7 +143,10 @@ const JsonGroupNode = memo(({ data }: NodeProps) => {
           type="button"
           className="rounded p-0.5 text-zinc-300 hover:bg-zinc-100 hover:text-zinc-700"
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); onAdd(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAdd();
+          }}
           title="Añadir clave hija"
         >
           <Plus size={12} />
@@ -141,7 +155,10 @@ const JsonGroupNode = memo(({ data }: NodeProps) => {
           type="button"
           className="rounded p-0.5 text-zinc-300 hover:bg-red-50 hover:text-red-500"
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
           title="Eliminar grupo"
         >
           <Trash2 size={12} />
@@ -166,11 +183,15 @@ const JsonLeafNode = memo(({ data }: NodeProps) => {
     onDelete: (path: string) => void;
   };
 
-  const borderClass = isResolved
-    ? 'border-emerald-300 bg-emerald-50/40'
-    : issue
-      ? ISSUE_BORDER[issue.type]
-      : 'border-zinc-200 bg-white';
+  const keepIssueVisible = issue?.type === 'INCORRECT_NESTING';
+
+  const borderClass = keepIssueVisible
+    ? ISSUE_BORDER[issue.type]
+    : isResolved
+      ? 'border-emerald-300 bg-emerald-50/40'
+      : issue
+        ? ISSUE_BORDER[issue.type]
+        : 'border-zinc-200 bg-white';
 
   return (
     <div className={`rounded-lg border-2 px-2.5 py-2 shadow-sm ${borderClass}`} style={{ width: LEAF_W }}>
@@ -179,22 +200,28 @@ const JsonLeafNode = memo(({ data }: NodeProps) => {
         <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex flex-wrap items-center gap-1">
             <span className="font-mono text-[11px] font-medium text-zinc-500">{label}</span>
-            {issue && !isResolved && (
+            {issue && (!isResolved || keepIssueVisible) && (
               <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${ISSUE_BADGE[issue.type]}`}>
                 {ISSUE_LABEL[issue.type]}
               </span>
             )}
-            {isResolved && (
+            {isResolved && !keepIssueVisible && (
               <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
                 Resuelto
               </span>
             )}
           </div>
-          <p className={`mt-0.5 truncate font-mono text-[11px] ${value ? 'text-zinc-800' : 'italic text-zinc-400'}`} title={value}>
+          <p
+            className={`mt-0.5 truncate font-mono text-[11px] ${value ? 'text-zinc-800' : 'italic text-zinc-400'}`}
+            title={value}
+          >
             {value || '∅ vacío'}
           </p>
           {refValue !== undefined && (
-            <p className={`mt-0.5 truncate font-mono text-[10px] ${refDiffers ? 'text-amber-700' : 'text-zinc-400'}`} title={refValue}>
+            <p
+              className={`mt-0.5 truncate font-mono text-[10px] ${refDiffers ? 'text-amber-700' : 'text-zinc-400'}`}
+              title={refValue}
+            >
               ref: {refValue || <span className="italic">∅ vacío</span>}
             </p>
           )}
@@ -204,7 +231,10 @@ const JsonLeafNode = memo(({ data }: NodeProps) => {
             type="button"
             className="rounded p-1 text-zinc-300 hover:bg-zinc-100 hover:text-zinc-700"
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); onEdit(path, value); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(path, value);
+            }}
             title="Editar valor"
           >
             <Pencil size={11} />
@@ -213,7 +243,10 @@ const JsonLeafNode = memo(({ data }: NodeProps) => {
             type="button"
             className="rounded p-1 text-zinc-300 hover:bg-red-50 hover:text-red-500"
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); onDelete(path); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(path);
+            }}
             title="Eliminar clave"
           >
             <Trash2 size={11} />
@@ -236,12 +269,18 @@ const NODE_TYPES = {
 function applyDagreLayout(rawNodes: Node[], rawEdges: Edge[], showRef: boolean) {
   const g = new Dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: 'LR', nodesep: 10, ranksep: 52, marginx: 24, marginy: 24 });
+  g.setGraph({ rankdir: 'LR', nodesep: 40, ranksep: 100, marginx: 24, marginy: 24 });
 
   for (const n of rawNodes) {
-    let w = GROUP_W; let h = GROUP_H;
-    if (n.type === 'jsonRoot') { w = ROOT_W; h = ROOT_H; }
-    else if (n.type === 'jsonLeaf') { w = LEAF_W; h = showRef ? LEAF_H_REF : LEAF_H; }
+    let w = GROUP_W;
+    let h = GROUP_H;
+    if (n.type === 'jsonRoot') {
+      w = ROOT_W;
+      h = ROOT_H;
+    } else if (n.type === 'jsonLeaf') {
+      w = LEAF_W;
+      h = showRef ? LEAF_H_REF : LEAF_H;
+    }
     g.setNode(n.id, { width: w, height: h });
   }
   for (const e of rawEdges) g.setEdge(e.source, e.target);
@@ -249,9 +288,15 @@ function applyDagreLayout(rawNodes: Node[], rawEdges: Edge[], showRef: boolean) 
 
   return rawNodes.map((n) => {
     const pos = g.node(n.id);
-    let w = GROUP_W; let h = GROUP_H;
-    if (n.type === 'jsonRoot') { w = ROOT_W; h = ROOT_H; }
-    else if (n.type === 'jsonLeaf') { w = LEAF_W; h = showRef ? LEAF_H_REF : LEAF_H; }
+    let w = GROUP_W;
+    let h = GROUP_H;
+    if (n.type === 'jsonRoot') {
+      w = ROOT_W;
+      h = ROOT_H;
+    } else if (n.type === 'jsonLeaf') {
+      w = LEAF_W;
+      h = showRef ? LEAF_H_REF : LEAF_H;
+    }
     return { ...n, position: { x: pos.x - w / 2, y: pos.y - h / 2 } };
   });
 }
@@ -281,11 +326,20 @@ function buildFlowGraph(
   });
 
   function subtreeIssueCount(path: string) {
-    let count = 0;
-    for (const [key] of issueByPath) {
-      if (key === path || key.startsWith(`${path}.`)) count++;
+    const issueIds = new Set<string>();
+    for (const [key, issue] of issueByPath) {
+      if (key === path || key.startsWith(`${path}.`)) issueIds.add(issue.id);
     }
-    return count;
+    return issueIds.size;
+  }
+
+  function hasIncorrectNestingInSubtree(path: string) {
+    for (const [key, issue] of issueByPath) {
+      if ((key === path || key.startsWith(`${path}.`)) && issue.type === 'INCORRECT_NESTING') {
+        return true;
+      }
+    }
+    return false;
   }
 
   function traverse(nodes: TreeNode[], parentId: string) {
@@ -299,12 +353,21 @@ function buildFlowGraph(
             label: node.key,
             childCount: node.children.length,
             issueCount: subtreeIssueCount(node.path),
+            hasIncorrectNesting: hasIncorrectNestingInSubtree(node.path),
             onAdd: () => onAdd(node.path),
             onDelete: () => onDelete(node.path),
           },
           position: { x: 0, y: 0 },
         });
-        rawEdges.push({ id: `e::${parentId}::${nodeId}`, source: parentId, target: nodeId, type: 'smoothstep', style: { stroke: '#d4d4d8', strokeWidth: 1.5 } });
+        rawEdges.push({
+          id: `e::${parentId}::${nodeId}`,
+          source: parentId,
+          target: nodeId,
+          type: 'smoothstep',
+          style: { stroke: '#d4d4d8', strokeWidth: 1.5 },
+          animated: false,
+          markerEnd: { type: 'arrowclosed', color: '#d4d4d8' },
+        });
         traverse(node.children, nodeId);
       } else {
         const issue = issueByPath.get(node.path);
@@ -314,10 +377,28 @@ function buildFlowGraph(
         rawNodes.push({
           id: nodeId,
           type: 'jsonLeaf',
-          data: { label: node.key, path: node.path, value: node.value, refValue, refDiffers, issue, isResolved, onEdit, onDelete },
+          data: {
+            label: node.key,
+            path: node.path,
+            value: node.value,
+            refValue,
+            refDiffers,
+            issue,
+            isResolved,
+            onEdit,
+            onDelete,
+          },
           position: { x: 0, y: 0 },
         });
-        rawEdges.push({ id: `e::${parentId}::${nodeId}`, source: parentId, target: nodeId, type: 'smoothstep', style: { stroke: '#d4d4d8', strokeWidth: 1.5 } });
+        rawEdges.push({
+          id: `e::${parentId}::${nodeId}`,
+          source: parentId,
+          target: nodeId,
+          type: 'smoothstep',
+          style: { stroke: '#d4d4d8', strokeWidth: 1.5 },
+          animated: false,
+          markerEnd: { type: 'arrowclosed', color: '#d4d4d8' },
+        });
       }
     }
   }
@@ -373,7 +454,19 @@ export function JsonTreeEditor({
     () => (referenceEntries ? new Map(referenceEntries.map((e) => [e.path, e.value])) : null),
     [referenceEntries],
   );
-  const issueByPath = useMemo(() => new Map(issues.map((i) => [i.key, i])), [issues]);
+  const issueByPath = useMemo(() => {
+    const map = new Map<string, AnalysisIssue>();
+
+    for (const issue of issues) {
+      map.set(issue.key, issue);
+
+      if (issue.type === 'INCORRECT_NESTING' && typeof issue.details?.foundPath === 'string') {
+        map.set(issue.details.foundPath, issue);
+      }
+    }
+
+    return map;
+  }, [issues]);
 
   const onEditCallback = useCallback(
     (path: string, value: string) => {
@@ -396,8 +489,14 @@ export function JsonTreeEditor({
   // Compute graph during render — no setState, no effects for layout
   const { nodes, edges } = useMemo(() => {
     const { rawNodes, rawEdges } = buildFlowGraph(
-      entries, refMap, showReference, issueByPath, resolvedIssueIds,
-      onEditCallback, onDeleteCallback, onAddCallback,
+      entries,
+      refMap,
+      showReference,
+      issueByPath,
+      resolvedIssueIds,
+      onEditCallback,
+      onDeleteCallback,
+      onAddCallback,
     );
     return { nodes: applyDagreLayout(rawNodes, rawEdges, showReference), edges: rawEdges };
   }, [entries, refMap, showReference, issueByPath, resolvedIssueIds, onEditCallback, onDeleteCallback, onAddCallback]);
@@ -425,7 +524,13 @@ export function JsonTreeEditor({
 
   return (
     <>
-      <div className={expanded ? 'fixed inset-0 z-50 bg-white' : 'h-[580px] overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm'}>
+      <div
+        className={
+          expanded
+            ? 'fixed inset-0 z-50 bg-white'
+            : 'h-[580px] overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm'
+        }
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -443,7 +548,14 @@ export function JsonTreeEditor({
           <MiniMap
             nodeColor={(n) => {
               if (n.type === 'jsonRoot') return '#18181b';
-              const d = n.data as { issue?: AnalysisIssue; isResolved?: boolean; issueCount?: number };
+              const d = n.data as {
+                issue?: AnalysisIssue;
+                isResolved?: boolean;
+                issueCount?: number;
+                hasIncorrectNesting?: boolean;
+              };
+              if (d.hasIncorrectNesting) return '#fbbf24';
+              if (d.issue && d.issue.type === 'INCORRECT_NESTING') return '#fbbf24';
               if (d.isResolved) return '#6ee7b7';
               if (d.issue) return '#fca5a5';
               if (d.issueCount && d.issueCount > 0) return '#fca5a5';
@@ -489,7 +601,10 @@ export function JsonTreeEditor({
             {editing?.issue && (
               <div className={`rounded-lg px-3 py-2 text-sm font-medium ${ISSUE_BADGE[editing.issue.type]}`}>
                 {ISSUE_LABEL[editing.issue.type]}
-                {editing.issue.details && ` — ${Object.entries(editing.issue.details).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`).join(' | ')}`}
+                {editing.issue.details &&
+                  ` — ${Object.entries(editing.issue.details)
+                    .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`)
+                    .join(' | ')}`}
               </div>
             )}
             {editing?.referenceValue !== undefined && (
@@ -511,8 +626,12 @@ export function JsonTreeEditor({
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
-            <Button type="button" onClick={saveEdit}>Guardar</Button>
+            <Button type="button" variant="outline" onClick={() => setEditing(null)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={saveEdit}>
+              Guardar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -523,7 +642,10 @@ export function JsonTreeEditor({
         title="Eliminar clave"
         description={`Vas a eliminar "${deleting?.path ?? ''}". Esta acción no se puede deshacer.`}
         confirmLabel="Eliminar"
-        onConfirm={() => { onDeleteEntry(deleting!.path); setDeleting(null); }}
+        onConfirm={() => {
+          onDeleteEntry(deleting!.path);
+          setDeleting(null);
+        }}
       />
 
       {/* Add key dialog */}
@@ -532,9 +654,7 @@ export function JsonTreeEditor({
           <DialogHeader>
             <DialogTitle>Añadir clave</DialogTitle>
             <DialogDescription>
-              {adding?.parentPath
-                ? `Se creará dentro de "${adding.parentPath}"`
-                : 'Se creará en la raíz del archivo'}
+              {adding?.parentPath ? `Se creará dentro de "${adding.parentPath}"` : 'Se creará en la raíz del archivo'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
@@ -547,7 +667,9 @@ export function JsonTreeEditor({
                 onChange={(e) => setAddKeyName(e.target.value)}
                 placeholder={adding?.parentPath ? 'nuevaClave' : 'seccion.nuevaClave'}
                 autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter') confirmAdd(); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') confirmAdd();
+                }}
               />
             </div>
             <div>
@@ -556,7 +678,9 @@ export function JsonTreeEditor({
                 value={addKeyValue}
                 onChange={(e) => setAddKeyValue(e.target.value)}
                 placeholder="Texto de traducción"
-                onKeyDown={(e) => { if (e.key === 'Enter') confirmAdd(); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') confirmAdd();
+                }}
               />
             </div>
             {adding && addKeyName.trim() && (
@@ -566,8 +690,12 @@ export function JsonTreeEditor({
             )}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setAdding(null)}>Cancelar</Button>
-            <Button type="button" onClick={confirmAdd} disabled={!addKeyName.trim()}>Añadir</Button>
+            <Button type="button" variant="outline" onClick={() => setAdding(null)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={confirmAdd} disabled={!addKeyName.trim()}>
+              Añadir
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

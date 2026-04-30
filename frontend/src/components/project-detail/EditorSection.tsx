@@ -22,9 +22,9 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import type { AnalysisIssue, Language, TranslationFileSummary, TranslationFileVersionSummary } from '../../lib/types';
 import { Button } from '../ui/button';
+import { ConfirmModal } from '../ui/confirm-modal';
 import { Input } from '../ui/input';
 import { SelectModal, type SelectModalOption } from '../ui/select-modal';
-import { ConfirmModal } from '../ui/confirm-modal';
 import { AiSuggestionReviewList } from './AiSuggestionReviewList';
 import { CloneToLanguageWizardModal } from './CloneToLanguageWizardModal';
 import { EditorFilePickerModal } from './EditorFilePickerModal';
@@ -43,15 +43,18 @@ type AiSuggestionCandidate = {
   currentText: string;
   suggestion: string;
   reason?: string;
-  issueType: 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH';
+  issueType: 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH' | 'INCORRECT_NESTING';
+  fileGroupId?: string;
   fileGroupName: string;
+  targetTranslationFileId?: string;
+  targetFilename?: string;
   applicableToCurrentFile: boolean;
   selected: boolean;
 };
 
 type AiSuggestionScope = 'CURRENT_FILE_ISSUES' | 'ALL_FILES_ISSUES' | 'ALL_FILES_BY_TYPE';
 
-type AiSuggestionIssueType = 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH';
+type AiSuggestionIssueType = 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH' | 'INCORRECT_NESTING';
 
 type CloneMode = 'EMPTY_STRUCTURE' | 'COPY_CONTENT';
 
@@ -94,6 +97,12 @@ const AI_SUGGESTION_ISSUE_TYPE_OPTIONS: SelectModalOption<AiSuggestionIssueType>
     label: 'Interpolation mismatch',
     description: 'Revisa diferencias en variables como {name} o {count}.',
     icon: Braces,
+  },
+  {
+    value: 'INCORRECT_NESTING',
+    label: 'Incorrect nesting',
+    description: 'Detecta claves ubicadas en una ruta distinta a la esperada.',
+    icon: Network,
   },
 ];
 
@@ -151,7 +160,7 @@ type EditorSectionProps = {
   onToggleAiSuggestion: (id: string) => void;
   onSelectAllAiSuggestions: () => void;
   onClearAiSuggestions: () => void;
-  onApplySelectedAiSuggestions: () => void;
+  onApplySelectedAiSuggestions: () => void | Promise<void>;
   isPro: boolean;
   onVersionHistoryProGate: () => void;
   onAddEntry: (path: string, value: string) => void;
@@ -669,8 +678,8 @@ export function EditorSection({
             )}
           </div>
 
-          {editorFileId && (
-            showAddForm ? (
+          {editorFileId &&
+            (showAddForm ? (
               <div className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Nueva clave</p>
                 <div className="flex flex-col gap-2 sm:flex-row">
@@ -704,7 +713,11 @@ export function EditorSection({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => { setShowAddForm(false); setAddPath(''); setAddValue(''); }}
+                    onClick={() => {
+                      setShowAddForm(false);
+                      setAddPath('');
+                      setAddValue('');
+                    }}
                   >
                     Cancelar
                   </Button>
@@ -715,8 +728,7 @@ export function EditorSection({
                 <Plus size={13} className="mr-1.5" />
                 Añadir clave
               </Button>
-            )
-          )}
+            ))}
         </div>
       )}
 
@@ -748,7 +760,10 @@ export function EditorSection({
         title="Eliminar clave"
         description={`Vas a eliminar "${deletingPath ?? ''}". Esta acción no se puede deshacer.`}
         confirmLabel="Eliminar"
-        onConfirm={() => { onDeleteEntry(deletingPath!); setDeletingPath(null); }}
+        onConfirm={() => {
+          onDeleteEntry(deletingPath!);
+          setDeletingPath(null);
+        }}
       />
     </div>
   );

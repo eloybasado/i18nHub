@@ -1,5 +1,7 @@
 import {
+  collectAllNodePaths,
   extractInterpolationVars,
+  findMisnestedKey,
   flattenJsonToMap,
   hasInterpolationMismatch,
 } from './analysis.utils';
@@ -58,5 +60,46 @@ describe('analysis.utils', () => {
     expect(
       hasInterpolationMismatch('Hello {userName}', 'Hola {userName}'),
     ).toBe(false);
+  });
+
+  describe('collectAllNodePaths', () => {
+    it('includes leaf, intermediate, and empty-container paths', () => {
+      const result = collectAllNodePaths({
+        nav: { home: 'Home', about: 'About' },
+        empty: {},
+        list: [],
+      });
+
+      expect(result.has('nav')).toBe(true);
+      expect(result.has('nav.home')).toBe(true);
+      expect(result.has('nav.about')).toBe(true);
+      expect(result.has('empty')).toBe(true);
+      expect(result.has('list')).toBe(true);
+    });
+
+    it('includes array index paths', () => {
+      const result = collectAllNodePaths({ items: ['a', 'b'] });
+
+      expect(result.has('items')).toBe(true);
+      expect(result.has('items.0')).toBe(true);
+      expect(result.has('items.1')).toBe(true);
+    });
+  });
+
+  describe('findMisnestedKey', () => {
+    it('returns the only target key that shares the same leaf name', () => {
+      const result = findMisnestedKey(
+        'home.title',
+        new Set(['title', 'nav.home']),
+      );
+
+      expect(result).toBe('title');
+    });
+
+    it('returns null when there is no unique misnested match', () => {
+      expect(
+        findMisnestedKey('home.title', new Set(['nav.title', 'title'])),
+      ).toBeNull();
+    });
   });
 });

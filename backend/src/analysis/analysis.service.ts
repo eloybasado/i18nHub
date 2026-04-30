@@ -6,7 +6,9 @@ import {
 import { IssueType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  collectAllNodePaths,
   extractInterpolationVars,
+  findMisnestedKey,
   flattenJsonToMap,
   hasInterpolationMismatch,
 } from './analysis.utils';
@@ -201,26 +203,55 @@ export class AnalysisService {
       const targetFile = fileByLanguageId.get(targetLanguageId);
       const targetMap = targetFile
         ? flattenJsonToMap(targetFile.content)
-        : new Map();
+        : new Map<string, string>();
       const targetKeys = new Set(targetMap.keys());
+      const misnestedTargetKeys = new Set<string>();
+
+      // Includes intermediate nodes and empty containers so structural
+      // differences don't produce false-positive MISSING_KEY reports.
+      const targetAllPaths = targetFile
+        ? collectAllNodePaths(targetFile.content)
+        : new Set<string>();
 
       for (const key of referenceKeys) {
-        if (!targetKeys.has(key)) {
+        if (targetKeys.has(key) || targetAllPaths.has(key)) {
+          continue;
+        }
+
+        const misnestedKey = findMisnestedKey(key, targetKeys);
+        if (misnestedKey) {
+          misnestedTargetKeys.add(misnestedKey);
           issues.push({
-            type: IssueType.MISSING_KEY,
+            type: IssueType.INCORRECT_NESTING,
             key,
             languageId: targetLanguageId,
             referenceLanguageId: params.referenceLanguageId,
             details: {
               fileGroupName: params.fileGroupName,
               referenceValue: referenceMap.get(key) ?? '',
+              expectedPath: key,
+              foundPath: misnestedKey,
+              foundValue: targetMap.get(misnestedKey) ?? '',
             },
           });
+
+          continue;
         }
+
+        issues.push({
+          type: IssueType.MISSING_KEY,
+          key,
+          languageId: targetLanguageId,
+          referenceLanguageId: params.referenceLanguageId,
+          details: {
+            fileGroupName: params.fileGroupName,
+            referenceValue: referenceMap.get(key) ?? '',
+          },
+        });
       }
 
       for (const key of targetKeys) {
-        if (!referenceKeys.has(key)) {
+        if (!referenceKeys.has(key) && !misnestedTargetKeys.has(key)) {
           issues.push({
             type: IssueType.UNUSED_KEY,
             key,
@@ -242,7 +273,12 @@ export class AnalysisService {
         const referenceValue = referenceMap.get(key) ?? '';
         const targetValue = targetMap.get(key) ?? '';
 
-        if (!hasInterpolationMismatch(referenceValue, targetValue)) {
+        // An empty target value means the key exists but is not yet translated;
+        // reporting interpolation mismatch in that case would be a false positive.
+        if (
+          !targetValue ||
+          !hasInterpolationMismatch(referenceValue, targetValue)
+        ) {
           continue;
         }
 

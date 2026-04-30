@@ -221,6 +221,60 @@ describe('AnalysisService', () => {
     );
   });
 
+  it('detects incorrectly nested keys instead of reporting them as missing', async () => {
+    prismaMock.project.findUnique = jest.fn().mockResolvedValue({
+      id: 'project-1',
+      referenceLanguageId: 'lang-en',
+      languages: [
+        { id: 'lang-en', code: 'en' },
+        { id: 'lang-es', code: 'es' },
+      ],
+      fileGroups: [{ id: 'group-1', name: 'home' }],
+    });
+
+    const analysisIssueCreateMany = jest.fn().mockResolvedValue({ count: 1 });
+
+    prismaMock.$transaction = jest.fn().mockImplementation(async (callback) =>
+      callback({
+        translationFile: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              languageId: 'lang-en',
+              content: {
+                home: {
+                  title: 'Hello',
+                },
+              },
+            },
+            {
+              languageId: 'lang-es',
+              content: {
+                title: 'Hola',
+              },
+            },
+          ]),
+        },
+        analysisReport: {
+          create: jest.fn().mockResolvedValue({ id: 'report-1' }),
+        },
+        analysisIssue: {
+          createMany: analysisIssueCreateMany,
+        },
+      }),
+    );
+
+    const result = await service.run('project-1', {});
+
+    expect(result.issuesCreated).toBe(1);
+    const payload = analysisIssueCreateMany.mock.calls[0][0].data;
+    expect(payload).toEqual([
+      expect.objectContaining({
+        type: IssueType.INCORRECT_NESTING,
+        key: 'home.title',
+      }),
+    ]);
+  });
+
   it('throws when reference file is missing in a file group', async () => {
     prismaMock.project.findUnique = jest.fn().mockResolvedValue({
       id: 'project-1',

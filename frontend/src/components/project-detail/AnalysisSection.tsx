@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   ArrowRightToLine,
+  Bot,
   ChevronDown,
   ChevronUp,
   Copy,
@@ -19,6 +20,7 @@ type IssueTypeStats = {
   MISSING_KEY: number;
   UNUSED_KEY: number;
   INTERPOLATION_MISMATCH: number;
+  INCORRECT_NESTING: number;
 };
 
 type AnalysisSectionProps = {
@@ -35,6 +37,7 @@ type AnalysisSectionProps = {
   fileGroupNameByReportId: Record<string, string>;
   onRunAnalysis: () => void | Promise<void>;
   onExportIssuesCsv: () => void;
+  onRequestAiSuggestions?: () => void | Promise<void>;
   onIssueTypeFilterChange: (value: 'ALL' | IssueType) => void;
   onIssueLanguageFilterChange: (value: 'ALL' | string) => void;
   onClearIssueFilters: () => void;
@@ -58,6 +61,7 @@ export function AnalysisSection({
   fileGroupNameByReportId,
   onRunAnalysis,
   onExportIssuesCsv,
+  onRequestAiSuggestions,
   onIssueTypeFilterChange,
   onIssueLanguageFilterChange,
   onClearIssueFilters,
@@ -71,6 +75,10 @@ export function AnalysisSection({
   const issueTypeBadgeClass = (type: IssueType) => {
     if (type === 'MISSING_KEY') {
       return 'border-amber-300 bg-amber-50 text-amber-800';
+    }
+
+    if (type === 'INCORRECT_NESTING') {
+      return 'border-orange-300 bg-orange-50 text-orange-800';
     }
 
     if (type === 'UNUSED_KEY') {
@@ -141,6 +149,13 @@ export function AnalysisSection({
         >
           Exportar CSV (filtrado)
         </Button>
+
+        {analysisReport && sortedFilteredIssues.length > 0 && onRequestAiSuggestions && (
+          <Button type="button" onClick={() => void onRequestAiSuggestions()} className="gap-2">
+            <Bot size={14} />
+            Sugerir IA
+          </Button>
+        )}
       </div>
 
       {analysisReport ? (
@@ -156,6 +171,7 @@ export function AnalysisSection({
               >
                 <option value="ALL">Todos</option>
                 <option value="MISSING_KEY">Falta clave</option>
+                <option value="INCORRECT_NESTING">Anidado incorrecto</option>
                 <option value="UNUSED_KEY">Clave no usada</option>
                 <option value="INTERPOLATION_MISMATCH">Interpolacion distinta</option>
               </Select>
@@ -178,6 +194,9 @@ export function AnalysisSection({
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800">
                 Falta clave: {issueTypeStats.MISSING_KEY}
+              </span>
+              <span className="rounded-full border border-orange-300 bg-orange-50 px-2 py-1 text-xs text-orange-800">
+                Anidado: {issueTypeStats.INCORRECT_NESTING}
               </span>
               <span className="rounded-full border border-blue-300 bg-blue-50 px-2 py-1 text-xs text-blue-800">
                 No usada: {issueTypeStats.UNUSED_KEY}

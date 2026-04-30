@@ -7,8 +7,11 @@ type AiSuggestionCandidate = {
   currentText: string;
   suggestion: string;
   reason?: string;
-  issueType: 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH';
+  issueType: 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH' | 'INCORRECT_NESTING';
+  fileGroupId?: string;
   fileGroupName: string;
+  targetTranslationFileId?: string;
+  targetFilename?: string;
   applicableToCurrentFile: boolean;
   selected: boolean;
 };
@@ -18,7 +21,7 @@ type AiSuggestionReviewListProps = {
   onToggleAiSuggestion: (id: string) => void;
   onSelectAllAiSuggestions: () => void;
   onClearAiSuggestions: () => void;
-  onApplySelectedAiSuggestions: () => void;
+  onApplySelectedAiSuggestions: () => void | Promise<void>;
 };
 
 export function AiSuggestionReviewList({
@@ -81,7 +84,7 @@ export function AiSuggestionReviewList({
                   </span>
                   {!item.applicableToCurrentFile ? (
                     <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-xs text-zinc-600">
-                      No aplicable a este archivo
+                      Se aplica en otro archivo
                     </span>
                   ) : null}
                 </div>

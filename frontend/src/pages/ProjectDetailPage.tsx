@@ -34,8 +34,8 @@ import type {
   IngestResponse,
   IssueType,
   Language,
-  ProjectMember,
   Project,
+  ProjectMember,
   RunAnalysisResponse,
   TranslationFileDetail,
   TranslationFileSummary,
@@ -54,7 +54,10 @@ type AiSuggestionCandidate = {
   suggestion: string;
   reason?: string;
   issueType: IssueType;
+  fileGroupId?: string;
   fileGroupName: string;
+  targetTranslationFileId?: string;
+  targetFilename?: string;
   applicableToCurrentFile: boolean;
   selected: boolean;
 };
@@ -230,6 +233,7 @@ export function ProjectDetailPage() {
   const [memberToTransfer, setMemberToTransfer] = useState<ProjectMember | null>(null);
   const [ingestFiles, setIngestFiles] = useState<IngestFileItem[]>([]);
   const [analysisReport, setAnalysisReport] = useState<AnalysisReport | null>(null);
+
   const [issueTypeFilter, setIssueTypeFilter] = useState<'ALL' | IssueType>('ALL');
   const [issueLanguageFilter, setIssueLanguageFilter] = useState<'ALL' | string>('ALL');
   const [fileToDelete, setFileToDelete] = useState<TranslationFileSummary | null>(null);
@@ -488,10 +492,7 @@ export function ProjectDetailPage() {
     }
   };
 
-  const onUpdateMemberRole = async (
-    member: ProjectMember,
-    role: 'EDITOR' | 'VIEWER',
-  ) => {
+  const onUpdateMemberRole = async (member: ProjectMember, role: 'EDITOR' | 'VIEWER') => {
     if (!projectId) return;
 
     if (!canManageTeam) {
@@ -1145,6 +1146,7 @@ export function ProjectDetailPage() {
       setExpandedIssueId(null);
       setActiveIssueId(null);
       setPersistedResolvedIds(new Set());
+
       notify.success(`Análisis completado: ${result.issuesCreated} issue(s) en ${result.reportsCreated} reporte(s)`);
     } catch {
       const message = 'No se pudo ejecutar el análisis';
@@ -1157,14 +1159,16 @@ export function ProjectDetailPage() {
 
   const issueTypeLabel = (type: IssueType) => {
     if (type === 'MISSING_KEY') return 'Falta clave';
+    if (type === 'INCORRECT_NESTING') return 'Anidado incorrecto';
     if (type === 'UNUSED_KEY') return 'Clave no usada';
     return 'Interpolacion distinta';
   };
 
   const issueTypeSeverity = (type: IssueType) => {
     if (type === 'MISSING_KEY') return 0;
-    if (type === 'INTERPOLATION_MISMATCH') return 1;
-    return 2;
+    if (type === 'INCORRECT_NESTING') return 1;
+    if (type === 'INTERPOLATION_MISMATCH') return 2;
+    return 3;
   };
 
   const languageNameById = new Map(languages.map((language) => [language.id, language]));
@@ -1174,6 +1178,7 @@ export function ProjectDetailPage() {
     UNUSED_KEY: (analysisReport?.issues ?? []).filter((issue) => issue.type === 'UNUSED_KEY').length,
     INTERPOLATION_MISMATCH: (analysisReport?.issues ?? []).filter((issue) => issue.type === 'INTERPOLATION_MISMATCH')
       .length,
+    INCORRECT_NESTING: (analysisReport?.issues ?? []).filter((issue) => issue.type === 'INCORRECT_NESTING').length,
   };
 
   const filteredIssues = (analysisReport?.issues ?? []).filter((issue) => {
@@ -1201,27 +1206,58 @@ export function ProjectDetailPage() {
     if (!editorFileMeta) return resolved;
 
     let entries = editorVisualEntries;
+    let parsedRaw: unknown = null;
     if (editorMode === 'RAW') {
       try {
-        entries = extractStringEntries(JSON.parse(editorJson) as Record<string, unknown>);
+        parsedRaw = JSON.parse(editorJson) as unknown;
+        entries = extractStringEntries(parsedRaw as Record<string, unknown>);
       } catch {
         // fallback to visual entries
       }
     }
 
     const currentMap = new Map(entries.map((e) => [e.path, e.value]));
-    for (const issue of sortedFilteredIssues as AnalysisIssue[]) {
+
+    // Collect non-string leaf paths from the raw JSON (numbers, booleans, null)
+    // so that keys with those values are also detected as "present".
+    const nonStringPaths = new Set<string>();
+    if (editorMode === 'RAW' && parsedRaw !== null) {
+      const walkNonString = (val: unknown, prefix: string): void => {
+        if (Array.isArray(val)) {
+          val.forEach((item, i) => walkNonString(item, prefix ? `${prefix}.${i}` : String(i)));
+        } else if (isPlainObject(val)) {
+          Object.entries(val).forEach(([k, v]) => walkNonString(v, prefix ? `${prefix}.${k}` : k));
+        } else if (prefix && typeof val !== 'string') {
+          nonStringPaths.add(prefix);
+        }
+      };
+      walkNonString(parsedRaw, '');
+    }
+
+    // Use the full issue list (not the filtered view) so resolution state is
+    // independent of whatever filter the user has currently applied.
+    for (const issue of (analysisReport?.issues ?? []) as AnalysisIssue[]) {
       const fileGroupId = reportGroupByReportId[issue.reportId];
       if (issue.languageId !== editorFileMeta.language.id || fileGroupId !== editorFileMeta.fileGroup.id) continue;
       if (issue.type === 'MISSING_KEY') {
         const val = currentMap.get(issue.key);
-        if (val !== undefined && val.trim() !== '') resolved.add(issue.id);
+        const hasNonEmptyString = val !== undefined && val.trim() !== '';
+        const hasNonStringValue = nonStringPaths.has(issue.key);
+        if (hasNonEmptyString || hasNonStringValue) resolved.add(issue.id);
       } else if (issue.type === 'UNUSED_KEY') {
         if (!currentMap.has(issue.key)) resolved.add(issue.id);
       }
     }
     return resolved;
-  }, [persistedResolvedIds, editorFileMeta, editorMode, editorVisualEntries, editorJson, sortedFilteredIssues, reportGroupByReportId]);
+  }, [
+    persistedResolvedIds,
+    editorFileMeta,
+    editorMode,
+    editorVisualEntries,
+    editorJson,
+    analysisReport,
+    reportGroupByReportId,
+  ]);
 
   const currentFileIssues = useMemo(() => {
     if (!editorFileMeta) return [];
@@ -1349,7 +1385,6 @@ export function ProjectDetailPage() {
     );
   };
 
-
   const restoreEditorVersion = async (versionId: string) => {
     if (!projectId || !editorFileId) {
       return;
@@ -1444,7 +1479,10 @@ export function ProjectDetailPage() {
 
     const issueScopedItems = analysisReport.issues
       .filter(issueScopeFilter)
-      .filter((issue) => issue.type === 'MISSING_KEY' || issue.type === 'INTERPOLATION_MISMATCH')
+      .filter(
+        (issue) =>
+          issue.type === 'MISSING_KEY' || issue.type === 'INTERPOLATION_MISMATCH' || issue.type === 'INCORRECT_NESTING',
+      )
       .map((issue) => {
         const referenceFromIssue =
           typeof issue.details?.referenceValue === 'string' ? issue.details.referenceValue : '';
@@ -1455,10 +1493,15 @@ export function ProjectDetailPage() {
           reportGroupNameByReportId[issue.reportId] ||
           (issueFileGroupId === editorFileMeta.fileGroup.id ? editorFileMeta.fileGroup.name : 'Otro grupo');
 
+        const currentText =
+          issue.type === 'INCORRECT_NESTING' && typeof issue.details?.foundValue === 'string'
+            ? issue.details.foundValue
+            : (currentByKey.get(issue.key) ?? '');
+
         return {
           key: issue.key,
           referenceText,
-          currentText: currentByKey.get(issue.key) ?? '',
+          currentText,
           issueType: issue.type,
           fileGroupId: issueFileGroupId,
           fileGroupName: issueFileGroupName,
@@ -1502,6 +1545,13 @@ export function ProjectDetailPage() {
         .filter((item) => item.key && typeof item.suggestion === 'string' && item.suggestion.trim() !== '')
         .map((item, index) => {
           const source = limited.find((candidate) => candidate.key === item.key);
+          const targetFile = source?.fileGroupId
+            ? translationFiles.find(
+                (file) =>
+                  file.language.id === editorFileMeta.language.id &&
+                  file.fileGroup.id === source.fileGroupId,
+              )
+            : null;
           const sameFileGroup = source?.fileGroupId === editorFileMeta.fileGroup.id;
           const existsInCurrentFile = currentByKey.has(item.key);
           const applicableToCurrentFile = sameFileGroup || existsInCurrentFile;
@@ -1513,9 +1563,12 @@ export function ProjectDetailPage() {
             suggestion: item.suggestion,
             reason: item.reason,
             issueType: source?.issueType ?? 'MISSING_KEY',
+            fileGroupId: source?.fileGroupId,
             fileGroupName: source?.fileGroupName ?? 'Otro grupo',
+            targetTranslationFileId: targetFile?.id,
+            targetFilename: targetFile?.filename,
             applicableToCurrentFile,
-            selected: applicableToCurrentFile,
+            selected: Boolean(targetFile),
           };
         });
 
@@ -1566,46 +1619,123 @@ export function ProjectDetailPage() {
     setEditorJson(JSON.stringify(current, null, 2));
   };
 
-  const applySelectedAiSuggestions = () => {
+  const applySelectedAiSuggestions = async () => {
     if (aiSuggestions.length === 0) {
       notify.error('No hay sugerencias IA para aplicar');
       return;
     }
 
-    let baseContent: Record<string, unknown>;
-    if (editorMode === 'RAW') {
-      try {
-        baseContent = JSON.parse(editorJson) as Record<string, unknown>;
-      } catch {
-        notify.error('El JSON RAW no es válido. Corrígelo antes de aplicar sugerencias.');
-        return;
-      }
-    } else {
-      if (!editorSourceContent) {
-        notify.error('No hay contenido base para aplicar sugerencias');
-        return;
-      }
-
-      baseContent = buildVisualContent(editorSourceContent, editorVisualEntries);
-    }
-
-    const nextContent = JSON.parse(JSON.stringify(baseContent)) as Record<string, unknown>;
-    const selected = aiSuggestions.filter((item) => item.selected && item.applicableToCurrentFile);
-
-    if (selected.length === 0) {
-      notify.error('No hay sugerencias aplicables seleccionadas');
+    if (!projectId || !editorFileId) {
+      notify.error('Abre un archivo en el editor antes de aplicar sugerencias IA');
       return;
     }
 
-    selected.forEach((item) => {
-      setStringByPath(nextContent, item.key, item.suggestion);
-    });
+    const selected = aiSuggestions.filter((item) => item.selected && item.targetTranslationFileId);
 
-    setEditorSourceContent(nextContent);
-    setEditorVisualEntries(extractStringEntries(nextContent));
-    setEditorJson(JSON.stringify(nextContent, null, 2));
-    setAiSuggestions([]);
-    notify.success(`Sugerencias aplicadas: ${selected.length}`);
+    if (selected.length === 0) {
+      notify.error('No hay sugerencias seleccionadas con archivo destino');
+      return;
+    }
+
+    const suggestionsByFile = selected.reduce<Map<string, AiSuggestionCandidate[]>>((acc, suggestion) => {
+      const fileId = suggestion.targetTranslationFileId;
+      if (!fileId) return acc;
+      const bucket = acc.get(fileId);
+      if (bucket) {
+        bucket.push(suggestion);
+      } else {
+        acc.set(fileId, [suggestion]);
+      }
+      return acc;
+    }, new Map());
+
+    let baseContent: Record<string, unknown> | null = null;
+    if (suggestionsByFile.has(editorFileId)) {
+      if (editorMode === 'RAW') {
+        try {
+          baseContent = JSON.parse(editorJson) as Record<string, unknown>;
+        } catch {
+          notify.error('El JSON RAW no es válido. Corrígelo antes de aplicar sugerencias al archivo abierto.');
+          return;
+        }
+      } else {
+        if (!editorSourceContent) {
+          notify.error('No hay contenido base para aplicar sugerencias en el archivo abierto');
+          return;
+        }
+
+        baseContent = buildVisualContent(editorSourceContent, editorVisualEntries);
+      }
+    }
+
+    setEditorBusy(true);
+    try {
+      const appliedSummary: Array<{ filename: string; count: number }> = [];
+      const failedFiles: string[] = [];
+
+      for (const [fileId, fileSuggestions] of suggestionsByFile.entries()) {
+        try {
+          let baseFileContent: Record<string, unknown>;
+
+          if (fileId === editorFileId) {
+            if (!baseContent) {
+              throw new Error('Missing base content for editor file');
+            }
+            baseFileContent = JSON.parse(JSON.stringify(baseContent)) as Record<string, unknown>;
+          } else {
+            const targetFile = await apiRequest<TranslationFileDetail>(
+              `/projects/${projectId}/translation-files/${fileId}`,
+              { auth: true },
+            );
+            baseFileContent = JSON.parse(JSON.stringify(targetFile.content)) as Record<string, unknown>;
+          }
+
+          fileSuggestions.forEach((suggestion) => {
+            setStringByPath(baseFileContent, suggestion.key, suggestion.suggestion);
+          });
+
+          const updated = await apiRequest<TranslationFileDetail>(
+            `/projects/${projectId}/translation-files/${fileId}/content`,
+            {
+              method: 'PATCH',
+              auth: true,
+              body: { content: baseFileContent },
+            },
+          );
+
+          if (fileId === editorFileId) {
+            setEditorFileMeta(updated);
+            setEditorSourceContent(updated.content);
+            setEditorVisualEntries(extractStringEntries(updated.content));
+            setEditorJson(JSON.stringify(updated.content, null, 2));
+          }
+
+          appliedSummary.push({
+            filename: updated.filename,
+            count: fileSuggestions.length,
+          });
+        } catch {
+          const fallbackName = fileSuggestions[0]?.targetFilename ?? `archivo ${fileId}`;
+          failedFiles.push(fallbackName);
+        }
+      }
+
+      setAiSuggestions([]);
+
+      if (appliedSummary.length > 0) {
+        const summaryText = appliedSummary
+          .map((entry) => `${entry.filename}: ${entry.count} issue(s)`)
+          .join(' · ');
+        notify.success(`Sugerencias IA aplicadas y guardadas: ${summaryText}`);
+        await load();
+      }
+
+      if (failedFiles.length > 0) {
+        notify.error(`No se pudieron guardar ${failedFiles.length} archivo(s): ${failedFiles.join(', ')}`);
+      }
+    } finally {
+      setEditorBusy(false);
+    }
   };
 
   return (
@@ -1879,6 +2009,15 @@ export function ProjectDetailPage() {
                 fileGroupNameByReportId={reportGroupNameByReportId}
                 onRunAnalysis={runAnalysis}
                 onExportIssuesCsv={exportIssuesCsv}
+                onRequestAiSuggestions={() => {
+                  setActiveSection('editor');
+                  setAiSuggestionScope('ALL_FILES_ISSUES');
+                  if (editorFileId) {
+                    void requestAiSuggestions();
+                    return;
+                  }
+                  notify.info('Abre un archivo en el editor para lanzar las sugerencias IA');
+                }}
                 onIssueTypeFilterChange={setIssueTypeFilter}
                 onIssueLanguageFilterChange={setIssueLanguageFilter}
                 onClearIssueFilters={() => {
@@ -1948,9 +2087,9 @@ export function ProjectDetailPage() {
             <DialogHeader>
               <DialogTitle>Función exclusiva de cuentas PRO</DialogTitle>
               <DialogDescription>
-                Las sugerencias con IA, el contexto de traducción y el historial de versiones son funciones
-                exclusivas de cuentas PRO. Con tu cuenta actual puedes usar el análisis completo, el editor y
-                las exportaciones sin límite.
+                Las sugerencias con IA, el contexto de traducción y el historial de versiones son funciones exclusivas
+                de cuentas PRO. Con tu cuenta actual puedes usar el análisis completo, el editor y las exportaciones sin
+                límite.
               </DialogDescription>
             </DialogHeader>
 

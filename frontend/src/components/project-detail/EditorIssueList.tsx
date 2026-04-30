@@ -13,18 +13,21 @@ const BADGE_CLASS: Record<IssueType, string> = {
   MISSING_KEY: 'bg-red-100 text-red-700',
   UNUSED_KEY: 'bg-yellow-100 text-yellow-700',
   INTERPOLATION_MISMATCH: 'bg-orange-100 text-orange-700',
+  INCORRECT_NESTING: 'bg-amber-100 text-amber-700',
 };
 
 const ACTIVE_BORDER_CLASS: Record<IssueType, string> = {
   MISSING_KEY: 'border-l-red-400',
   UNUSED_KEY: 'border-l-yellow-400',
   INTERPOLATION_MISMATCH: 'border-l-orange-400',
+  INCORRECT_NESTING: 'border-l-amber-400',
 };
 
 const TYPE_LABEL: Record<IssueType, string> = {
   MISSING_KEY: 'Falta',
   UNUSED_KEY: 'Extra',
   INTERPOLATION_MISMATCH: 'Interpolación',
+  INCORRECT_NESTING: 'Anidado',
 };
 
 export function EditorIssueList({

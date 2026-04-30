@@ -5,6 +5,7 @@ type IssueTypeStats = {
   MISSING_KEY: number;
   UNUSED_KEY: number;
   INTERPOLATION_MISMATCH: number;
+  INCORRECT_NESTING: number;
 };
 
 type SectionId = 'overview' | 'languages' | 'upload' | 'editor' | 'analysis';
@@ -80,6 +81,9 @@ export function OverviewSection({
           </span>
           <span className="rounded-full border border-zinc-300 px-2 py-1 text-zinc-700">
             Interp.: {issueTypeStats.INTERPOLATION_MISMATCH}
+          </span>
+          <span className="rounded-full border border-zinc-300 px-2 py-1 text-zinc-700">
+            Anidado: {issueTypeStats.INCORRECT_NESTING}
           </span>
         </div>
       </div>

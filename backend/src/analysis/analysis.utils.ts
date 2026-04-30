@@ -25,6 +25,53 @@ export function hasInterpolationMismatch(
   return referenceVars.some((value, index) => value !== targetVars[index]);
 }
 
+export function findMisnestedKey(
+  referenceKey: string,
+  targetKeys: Set<string>,
+): string | null {
+  const leafKey = referenceKey.split('.').pop();
+  if (!leafKey) {
+    return null;
+  }
+
+  const matches = Array.from(targetKeys).filter(
+    (candidateKey) =>
+      candidateKey !== referenceKey &&
+      candidateKey.split('.').pop() === leafKey,
+  );
+
+  return matches.length === 1 ? matches[0] : null;
+}
+
+/**
+ * Collects every path that exists anywhere in the JSON tree (leaves, intermediate
+ * nodes, empty containers). Used to detect structural mismatches without producing
+ * false-positive MISSING_KEY issues.
+ */
+export function collectAllNodePaths(
+  value: unknown,
+  currentPath = '',
+  result = new Set<string>(),
+): Set<string> {
+  if (currentPath) {
+    result.add(currentPath);
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      const nextPath = currentPath ? `${currentPath}.${index}` : String(index);
+      collectAllNodePaths(item, nextPath, result);
+    });
+  } else if (isPlainObject(value)) {
+    Object.entries(value).forEach(([key, nestedValue]) => {
+      const nextPath = currentPath ? `${currentPath}.${key}` : key;
+      collectAllNodePaths(nestedValue, nextPath, result);
+    });
+  }
+
+  return result;
+}
+
 function walkJson(
   value: unknown,
   currentPath: string,
