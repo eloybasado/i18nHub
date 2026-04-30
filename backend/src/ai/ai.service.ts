@@ -158,6 +158,166 @@ export class AiService {
       .filter((entry): entry is AiContextGlossaryEntry => Boolean(entry));
   }
 
+  async reviewTranslationQuality(
+    user: JwtPayload,
+    projectId: string,
+    translationFileId: string,
+    targetLanguageCodes: string[],
+  ) {
+    if (user.tier !== 'PRO') {
+      throw new ForbiddenException(
+        'Translation quality review is available for PRO users only',
+      );
+    }
+
+    const translationFile = await this.prisma.translationFile.findUnique({
+      where: {
+        id: translationFileId,
+      },
+      include: {
+        language: true,
+        fileGroup: true,
+      },
+    });
+
+    if (!translationFile) {
+      throw new NotFoundException('Translation file not found');
+    }
+
+    // Verify the file belongs to the project
+    const fileGroupProject = await this.prisma.fileGroup.findUnique({
+      where: {
+        id: translationFile.fileGroupId,
+      },
+      select: {
+        projectId: true,
+      },
+    });
+
+    if (fileGroupProject?.projectId !== projectId) {
+      throw new ForbiddenException(
+        'Translation file does not belong to this project',
+      );
+    }
+
+    const results: Array<{
+      fileId: string;
+      filename: string;
+      languageCode: string;
+      languageName: string;
+      suggestions: Array<{
+        key: string;
+        currentText: string;
+        suggestedText: string;
+        reason: string;
+        confidence: 'high' | 'medium' | 'low';
+      }>;
+      reviewedAt: string;
+    }> = [];
+
+    // Review each target language
+    for (const languageCode of targetLanguageCodes) {
+      const targetLanguage = await this.prisma.language.findFirst({
+        where: {
+          projectId,
+          code: languageCode,
+        },
+      });
+
+      if (!targetLanguage) {
+        continue;
+      }
+
+      const targetFile = await this.prisma.translationFile.findFirst({
+        where: {
+          fileGroupId: translationFile.fileGroupId,
+          languageId: targetLanguage.id,
+        },
+      });
+
+      if (!targetFile) {
+        continue;
+      }
+
+      // Extract translations to review
+      const content = targetFile.content as Record<string, unknown>;
+      const flattenedContent = this.flattenJson(content);
+
+      const reviewItems = Array.from(flattenedContent.entries()).map(
+        ([key, text]) => ({
+          key,
+          translatedText: String(text || ''),
+        }),
+      );
+
+      if (reviewItems.length === 0) {
+        continue;
+      }
+
+      // Call LLM to review quality
+      const suggestions = await this.llmProvider.reviewQualityBatch({
+        languageCode: targetLanguage.code,
+        items: reviewItems,
+      });
+
+      results.push({
+        fileId: targetFile.id,
+        filename: targetFile.filename,
+        languageCode: targetLanguage.code,
+        languageName: targetLanguage.name,
+        suggestions,
+        reviewedAt: new Date().toISOString(),
+      });
+    }
+
+    return { results };
+  }
+
+  private flattenJson(
+    obj: Record<string, unknown>,
+    prefix = '',
+  ): Map<string, string> {
+    const result = new Map<string, string>();
+
+    for (const [key, value] of Object.entries(obj)) {
+      const fullKey = prefix ? `${prefix}.${key}` : key;
+
+      if (typeof value === 'string') {
+        result.set(fullKey, value);
+      } else if (
+        typeof value === 'object' &&
+        value !== null &&
+        !Array.isArray(value)
+      ) {
+        const nested = this.flattenJson(
+          value as Record<string, unknown>,
+          fullKey,
+        );
+        for (const [k, v] of nested.entries()) {
+          result.set(k, v);
+        }
+      } else if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i++) {
+          const item = value[i];
+          const itemKey = `${fullKey}.${i}`;
+          if (typeof item === 'string') {
+            result.set(itemKey, item);
+          } else if (typeof item === 'object' && item !== null) {
+            const nested = this.flattenJson(
+              item as Record<string, unknown>,
+              itemKey,
+            );
+            for (const [k, v] of nested.entries()) {
+              result.set(k, v);
+            }
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
   private normalizeGlossary(
     glossary: UpdateAiContextDto['glossary'],
   ): AiContextGlossaryEntry[] {

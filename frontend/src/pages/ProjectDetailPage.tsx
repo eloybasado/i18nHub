@@ -1,5 +1,16 @@
 import JSZip from 'jszip';
-import { ArrowLeft, Bot, FilePenLine, FileSearch, FileUp, Languages, Star, Users } from 'lucide-react';
+import {
+  ArrowLeft,
+  Bot,
+  CheckSquare,
+  FilePenLine,
+  FileSearch,
+  FileUp,
+  Languages,
+  Plug,
+  Star,
+  Users,
+} from 'lucide-react';
 import type { ChangeEvent, DragEvent, FormEvent, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -7,8 +18,10 @@ import { PageHeader } from '../components/PageHeader';
 import { AiContextSection } from '../components/project-detail/AiContextSection';
 import { AnalysisSection } from '../components/project-detail/AnalysisSection';
 import { EditorSection } from '../components/project-detail/EditorSection';
+import { IntegrationsSection } from '../components/project-detail/IntegrationsSection';
 import { LanguagesSection } from '../components/project-detail/LanguagesSection';
 import { OverviewSection } from '../components/project-detail/OverviewSection';
+import { QualityReviewSection } from '../components/project-detail/QualityReviewSection';
 import { TeamSection } from '../components/project-detail/TeamSection';
 import { UploadSection, type IngestFileItem } from '../components/project-detail/UploadSection';
 import { Button } from '../components/ui/button';
@@ -213,6 +226,8 @@ const SECTION_ITEMS = [
   { id: 'editor', label: 'Editor' },
   { id: 'ai-context', label: 'Contexto IA' },
   { id: 'analysis', label: 'Análisis' },
+  { id: 'quality-review', label: 'Calidad' },
+  { id: 'integrations', label: 'Integraciones' },
 ] as const;
 
 type SectionId = (typeof SECTION_ITEMS)[number]['id'];
@@ -226,6 +241,8 @@ const sectionIconById: Record<SectionId, ReactNode> = {
   editor: <FilePenLine size={14} />,
   'ai-context': <Bot size={14} />,
   analysis: <FileSearch size={14} />,
+  'quality-review': <CheckSquare size={14} />,
+  integrations: <Plug size={14} />,
 };
 
 export function ProjectDetailPage() {
@@ -2227,6 +2244,19 @@ export function ProjectDetailPage() {
                 issueTypeLabel={issueTypeLabel}
                 formatIssueDetails={formatIssueDetails}
               />
+            </div>
+
+            <div className={`${activeSection === 'quality-review' ? 'block' : 'hidden'} mt-2`}>
+              <QualityReviewSection
+                projectId={projectId ?? ''}
+                translationFiles={translationFiles}
+                languages={languages}
+                referenceLanguageId={project?.referenceLanguageId}
+              />
+            </div>
+
+            <div className={`${activeSection === 'integrations' ? 'block' : 'hidden'} mt-2`}>
+              <IntegrationsSection />
             </div>
           </section>
         </div>

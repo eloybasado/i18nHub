@@ -176,3 +176,24 @@ export type AiContextSettingsResponse = {
     languageCodes: string[];
   }>;
 };
+
+export type QualityReviewSuggestion = {
+  key: string;
+  currentText: string;
+  suggestedText: string;
+  reason: string;
+  confidence: 'high' | 'medium' | 'low';
+};
+
+export type QualityReviewResult = {
+  fileId: string;
+  filename: string;
+  languageCode: string;
+  languageName: string;
+  suggestions: QualityReviewSuggestion[];
+  reviewedAt: string;
+};
+
+export type QualityReviewResponse = {
+  results: QualityReviewResult[];
+};

@@ -2,6 +2,8 @@ import {
   AiGlossaryEntryInput,
   AiSuggestionItemInput,
   AiSuggestionItemOutput,
+  QualityReviewSuggestionInput,
+  QualityReviewSuggestionOutput,
 } from '../types';
 
 export interface LlmProvider {
@@ -11,6 +13,11 @@ export interface LlmProvider {
     glossary?: AiGlossaryEntryInput[];
     items: AiSuggestionItemInput[];
   }): Promise<AiSuggestionItemOutput[]>;
+
+  reviewQualityBatch(params: {
+    languageCode: string;
+    items: QualityReviewSuggestionInput[];
+  }): Promise<QualityReviewSuggestionOutput[]>;
 }
 
 export const LLM_PROVIDER = 'LLM_PROVIDER';

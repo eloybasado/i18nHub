@@ -16,6 +16,7 @@ import { JwtPayload } from '../auth/types';
 import { ProjectRoles } from '../common/decorators/project-roles.decorator';
 import { ProjectRoleGuard } from '../common/guards/project-role.guard';
 import { AiService } from './ai.service';
+import { ReviewTranslationQualityDto } from './dto/review-translation-quality.dto';
 import { SuggestTranslationsDto } from './dto/suggest-translations.dto';
 import { UpdateAiContextDto } from './dto/update-ai-context.dto';
 
@@ -49,5 +50,20 @@ export class AiController {
     @Body() dto: UpdateAiContextDto,
   ) {
     return this.aiService.updateContextSettings(projectId, dto);
+  }
+
+  @Post('review')
+  @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR)
+  reviewQuality(
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
+    @Body() dto: ReviewTranslationQualityDto,
+    @Req() request: Request & { user: JwtPayload },
+  ) {
+    return this.aiService.reviewTranslationQuality(
+      request.user,
+      projectId,
+      dto.translationFileId,
+      dto.targetLanguageCodes,
+    );
   }
 }
