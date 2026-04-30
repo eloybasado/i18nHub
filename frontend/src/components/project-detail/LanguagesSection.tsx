@@ -1,6 +1,6 @@
 import { Languages, Pencil, Star, Trash2 } from 'lucide-react';
 import type { FormEvent } from 'react';
-import type { Language } from '../../lib/types';
+import type { Language, LanguageCoverageItem } from '../../lib/types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 
@@ -10,6 +10,7 @@ type LanguagesSectionProps = {
   code: string;
   name: string;
   loading: boolean;
+  languageCoverageByLanguageId?: Record<string, LanguageCoverageItem>;
   onCodeChange: (value: string) => void;
   onNameChange: (value: string) => void;
   onAddLanguage: (event: FormEvent) => void | Promise<void>;
@@ -24,6 +25,7 @@ export function LanguagesSection({
   code,
   name,
   loading,
+  languageCoverageByLanguageId,
   onCodeChange,
   onNameChange,
   onAddLanguage,
@@ -62,12 +64,34 @@ export function LanguagesSection({
         <ul className="mt-3 divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white">
           {languages.map((language) => {
             const isReference = language.id === referenceLanguageId;
+            const coverage = languageCoverageByLanguageId?.[language.id];
+            const completionPercent = coverage?.completionPercent ?? (isReference ? 100 : 0);
 
             return (
               <li key={language.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-3">
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-zinc-900">{language.name}</p>
                   <p className="text-xs text-zinc-500">{language.code}</p>
+                  <div className="mt-2 max-w-md">
+                    <div className="mb-1 flex items-center justify-between text-[11px] text-zinc-600">
+                      <span className="font-semibold text-zinc-800">{completionPercent}%</span>
+                    </div>
+                    <div className="h-2 w-72 overflow-hidden rounded-full bg-zinc-200">
+                      <div
+                        className={`h-full rounded-full ${isReference ? 'bg-zinc-700' : 'bg-zinc-900'}`}
+                        style={{ width: `${Math.max(0, Math.min(100, completionPercent))}%` }}
+                      />
+                    </div>
+                    {coverage && !isReference && (
+                      <p className="mt-1 text-[11px] text-zinc-500">
+                        {coverage.correctKeys}/{coverage.totalKeys} claves correctas · pendientes:{' '}
+                        {coverage.missingKeys +
+                          coverage.untranslatedKeys +
+                          coverage.interpolationMismatchKeys +
+                          coverage.incorrectNestingKeys}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">

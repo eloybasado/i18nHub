@@ -36,4 +36,18 @@ export class AnalysisController {
   ) {
     return this.analysisService.getReport(projectId, reportId);
   }
+
+  @Get('latest')
+  @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR, ProjectRole.VIEWER)
+  getLatestRun(@Param('projectId', new ParseUUIDPipe()) projectId: string) {
+    return this.analysisService.getLatestRun(projectId);
+  }
+
+  @Get('coverage')
+  @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR, ProjectRole.VIEWER)
+  getLanguageCoverage(
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
+  ) {
+    return this.analysisService.getLanguageCoverage(projectId);
+  }
 }

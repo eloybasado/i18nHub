@@ -36,6 +36,7 @@ type AnalysisSectionProps = {
   languageNameById: Map<string, Language>;
   fileGroupNameByReportId: Record<string, string>;
   onRunAnalysis: () => void | Promise<void>;
+  onLoadLatestAnalysis?: () => void | Promise<void>;
   onExportIssuesCsv: () => void;
   onRequestAiSuggestions?: () => void | Promise<void>;
   onIssueTypeFilterChange: (value: 'ALL' | IssueType) => void;
@@ -60,6 +61,7 @@ export function AnalysisSection({
   languageNameById,
   fileGroupNameByReportId,
   onRunAnalysis,
+  onLoadLatestAnalysis,
   onExportIssuesCsv,
   onRequestAiSuggestions,
   onIssueTypeFilterChange,
@@ -140,6 +142,12 @@ export function AnalysisSection({
         <Button type="button" onClick={() => void onRunAnalysis()} disabled={loading}>
           {loading ? 'Analizando...' : 'Ejecutar análisis'}
         </Button>
+
+        {onLoadLatestAnalysis && (
+          <Button type="button" variant="outline" onClick={() => void onLoadLatestAnalysis()} disabled={loading}>
+            Recuperar último análisis
+          </Button>
+        )}
 
         <Button
           type="button"

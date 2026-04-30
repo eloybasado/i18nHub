@@ -12,7 +12,7 @@ import {
 } from '../ui/dialog';
 import { Select } from '../ui/select';
 
-type CloneMode = 'EMPTY_STRUCTURE' | 'COPY_CONTENT';
+type CloneMode = 'EMPTY_STRUCTURE' | 'COPY_CONTENT' | 'AI_TRANSLATE_FULL';
 
 type CloneToLanguageWizardModalProps = {
   disabled: boolean;
@@ -25,6 +25,7 @@ type CloneToLanguageWizardModalProps = {
   onCloneModeChange: (mode: CloneMode) => void;
   onCloneEmptyStructure: () => void;
   onRequestCopyContent: () => void;
+  onTranslateFullWithAi: () => void;
 };
 
 export function CloneToLanguageWizardModal({
@@ -38,6 +39,7 @@ export function CloneToLanguageWizardModal({
   onCloneModeChange,
   onCloneEmptyStructure,
   onRequestCopyContent,
+  onTranslateFullWithAi,
 }: CloneToLanguageWizardModalProps) {
   return (
     <Dialog>
@@ -96,11 +98,14 @@ export function CloneToLanguageWizardModal({
             >
               <option value="EMPTY_STRUCTURE">Crear estructura vacía (seguro)</option>
               <option value="COPY_CONTENT">Copiar contenido actual (puede sobrescribir)</option>
+              <option value="AI_TRANSLATE_FULL">Traducir archivo completo con IA</option>
             </Select>
             <p className="mt-2 text-xs text-zinc-600">
               {editorCloneMode === 'EMPTY_STRUCTURE'
                 ? 'Genera las mismas claves con textos vacíos para traducir después.'
-                : 'Replica las traducciones actuales en destino. Útil como base rápida, pero puede sobrescribir datos previos.'}
+                : editorCloneMode === 'COPY_CONTENT'
+                  ? 'Replica las traducciones actuales en destino. Útil como base rápida, pero puede sobrescribir datos previos.'
+                  : 'Crea/actualiza el archivo destino y traduce todas las claves con IA usando el contexto y glosario del proyecto.'}
             </p>
           </div>
         </div>
@@ -114,12 +119,20 @@ export function CloneToLanguageWizardModal({
                 onRequestCopyContent();
                 return;
               }
+
+              if (editorCloneMode === 'AI_TRANSLATE_FULL') {
+                onTranslateFullWithAi();
+                return;
+              }
+
               onCloneEmptyStructure();
             }}
           >
             {editorCloneMode === 'EMPTY_STRUCTURE'
               ? `Crear estructura${selectedTargetLanguage ? ` en ${selectedTargetLanguage.name}` : ''}`
-              : `Copiar contenido${selectedTargetLanguage ? ` en ${selectedTargetLanguage.name}` : ''}`}
+              : editorCloneMode === 'COPY_CONTENT'
+                ? `Copiar contenido${selectedTargetLanguage ? ` en ${selectedTargetLanguage.name}` : ''}`
+                : `Traducir con IA${selectedTargetLanguage ? ` a ${selectedTargetLanguage.name}` : ''}`}
           </Button>
         </DialogFooter>
       </DialogContent>

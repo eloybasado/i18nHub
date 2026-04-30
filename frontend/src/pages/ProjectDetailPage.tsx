@@ -34,6 +34,9 @@ import type {
   IngestResponse,
   IssueType,
   Language,
+  LanguageCoverageItem,
+  LanguageCoverageResponse,
+  LatestAnalysisResponse,
   Project,
   ProjectMember,
   RunAnalysisResponse,
@@ -63,6 +66,13 @@ type AiSuggestionCandidate = {
 };
 
 type AiSuggestionScope = 'CURRENT_FILE_ISSUES' | 'ALL_FILES_ISSUES' | 'ALL_FILES_BY_TYPE';
+
+type AnalysisReportMeta = {
+  id: string;
+  fileGroupId: string;
+  fileGroupName: string;
+  issuesCreated: number;
+};
 
 const toAiContextPayload = (context: string, glossaryEntries: AiGlossaryEntry[]) => {
   return {
@@ -206,7 +216,7 @@ const SECTION_ITEMS = [
 ] as const;
 
 type SectionId = (typeof SECTION_ITEMS)[number]['id'];
-type CloneMode = 'EMPTY_STRUCTURE' | 'COPY_CONTENT';
+type CloneMode = 'EMPTY_STRUCTURE' | 'COPY_CONTENT' | 'AI_TRANSLATE_FULL';
 
 const sectionIconById: Record<SectionId, ReactNode> = {
   overview: <Star size={14} />,
@@ -224,6 +234,9 @@ export function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [teamMembers, setTeamMembers] = useState<ProjectMember[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
+  const [languageCoverageByLanguageId, setLanguageCoverageByLanguageId] = useState<
+    Record<string, LanguageCoverageItem>
+  >({});
   const [translationFiles, setTranslationFiles] = useState<TranslationFileSummary[]>([]);
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
@@ -354,22 +367,126 @@ export function ProjectDetailPage() {
     }
   };
 
+  const hydrateAnalysisFromReportMetas = useCallback(
+    async (reportMetas: AnalysisReportMeta[]) => {
+      if (!projectId) {
+        return false;
+      }
+
+      if (reportMetas.length === 0) {
+        setAnalysisReport(null);
+        setReportGroupByReportId({});
+        setReportGroupNameByReportId({});
+        setIssueTypeFilter('ALL');
+        setIssueLanguageFilter('ALL');
+        setExpandedIssueId(null);
+        setActiveIssueId(null);
+        setPersistedResolvedIds(new Set());
+        return false;
+      }
+
+      const reports = await Promise.all(
+        reportMetas.map((reportMeta) =>
+          apiRequest<AnalysisReport>(`/projects/${projectId}/analysis/reports/${reportMeta.id}`, {
+            auth: true,
+          }),
+        ),
+      );
+
+      setReportGroupByReportId(
+        Object.fromEntries(
+          reports
+            .filter((report) => Boolean(report.fileGroup?.id))
+            .map((report) => [report.id, report.fileGroup?.id as string]),
+        ),
+      );
+
+      setReportGroupNameByReportId(
+        Object.fromEntries(
+          reportMetas.map((report) => [
+            report.id,
+            report.fileGroupName?.trim() ? report.fileGroupName : 'Grupo sin identificar',
+          ]),
+        ),
+      );
+
+      const combinedReport: AnalysisReport = {
+        id: reports[0]?.id ?? 'combined-report',
+        projectId,
+        createdAt: reports[0]?.createdAt ?? new Date().toISOString(),
+        fileGroup: null,
+        issues: reports.flatMap((report) => report.issues),
+      };
+
+      setAnalysisReport(combinedReport);
+      setIssueTypeFilter('ALL');
+      setIssueLanguageFilter('ALL');
+      setExpandedIssueId(null);
+      setActiveIssueId(null);
+      setPersistedResolvedIds(new Set());
+
+      return true;
+    },
+    [projectId],
+  );
+
+  const loadLatestAnalysis = useCallback(
+    async (silent = false) => {
+      if (!projectId) {
+        return false;
+      }
+
+      try {
+        const latest = await apiRequest<LatestAnalysisResponse>(`/projects/${projectId}/analysis/latest`, {
+          auth: true,
+        });
+
+        const loaded = await hydrateAnalysisFromReportMetas(latest.reports);
+        if (!loaded && !silent) {
+          notify.info('No hay análisis previos guardados');
+          return false;
+        }
+
+        if (loaded && !silent) {
+          notify.success(
+            `Último análisis recuperado: ${latest.issuesCreated} issue(s) en ${latest.reportsCreated} reporte(s)`,
+          );
+        }
+
+        return loaded;
+      } catch {
+        if (!silent) {
+          notify.error('No se pudo recuperar el último análisis guardado');
+        }
+        return false;
+      }
+    },
+    [projectId, hydrateAnalysisFromReportMetas],
+  );
+
   const load = useCallback(async () => {
     if (!projectId) return;
 
     try {
-      const [projectData, membersData, languagesData, filesData, aiContextSettings] = await Promise.all([
-        apiRequest<Project>(`/projects/${projectId}`, { auth: true }),
-        apiRequest<ProjectMember[]>(`/projects/${projectId}/members`, { auth: true }),
-        apiRequest<Language[]>(`/projects/${projectId}/languages`, { auth: true }),
-        apiRequest<TranslationFileSummary[]>(`/projects/${projectId}/translation-files`, { auth: true }),
-        apiRequest<AiContextSettingsResponse>(`/projects/${projectId}/ai/context`, {
-          auth: true,
-        }).catch(() => ({
-          context: '',
-          glossary: [],
-        })),
-      ]);
+      const [projectData, membersData, languagesData, filesData, aiContextSettings, languageCoverage] =
+        await Promise.all([
+          apiRequest<Project>(`/projects/${projectId}`, { auth: true }),
+          apiRequest<ProjectMember[]>(`/projects/${projectId}/members`, { auth: true }),
+          apiRequest<Language[]>(`/projects/${projectId}/languages`, { auth: true }),
+          apiRequest<TranslationFileSummary[]>(`/projects/${projectId}/translation-files`, { auth: true }),
+          apiRequest<AiContextSettingsResponse>(`/projects/${projectId}/ai/context`, {
+            auth: true,
+          }).catch(() => ({
+            context: '',
+            glossary: [],
+          })),
+          apiRequest<LanguageCoverageResponse>(`/projects/${projectId}/analysis/coverage`, {
+            auth: true,
+          }).catch(() => ({
+            referenceLanguageId: null,
+            languages: [],
+          })),
+        ]);
 
       const glossaryEntries = toAiGlossaryEntries(aiContextSettings.glossary);
       const savedSignature = toAiContextSignature(aiContextSettings.context, glossaryEntries);
@@ -377,15 +494,19 @@ export function ProjectDetailPage() {
       setProject(projectData);
       setTeamMembers(membersData);
       setLanguages(languagesData);
+      setLanguageCoverageByLanguageId(
+        Object.fromEntries(languageCoverage.languages.map((item) => [item.languageId, item])),
+      );
       setTranslationFiles(filesData);
       setAiContext(aiContextSettings.context);
       setAiGlossaryEntries(glossaryEntries);
       setAiContextSavedSignature(savedSignature);
       setAiContextHydrated(true);
+      await loadLatestAnalysis(true);
     } catch {
       setError('No se pudo cargar el proyecto');
     }
-  }, [projectId]);
+  }, [projectId, loadLatestAnalysis]);
 
   useEffect(() => {
     void load();
@@ -981,6 +1102,123 @@ export function ProjectDetailPage() {
     }
   };
 
+  const translateEditorFileToLanguageWithAi = async () => {
+    if (getCurrentUserTier() === 'FREE') {
+      setProModalOpen(true);
+      return;
+    }
+
+    if (!projectId || !editorFileId || !editorTargetLanguageId) {
+      notify.error('Selecciona un idioma destino');
+      return;
+    }
+
+    const targetLanguage = languages.find((language) => language.id === editorTargetLanguageId);
+    if (!targetLanguage) {
+      notify.error('No se encontró el idioma destino');
+      return;
+    }
+
+    const sourceContent = getEditorContentSnapshot();
+    if (!sourceContent) {
+      return;
+    }
+
+    const sourceEntries = extractStringEntries(sourceContent).filter((entry) => entry.value.trim().length > 0);
+    if (sourceEntries.length === 0) {
+      notify.error('El archivo origen no tiene textos para traducir');
+      return;
+    }
+
+    setEditorBusy(true);
+    setAiSuggestBusy(true);
+
+    try {
+      const cloned = await apiRequest<TranslationFileSummary>(`/projects/${projectId}/translation-files/clone`, {
+        method: 'POST',
+        auth: true,
+        body: {
+          sourceTranslationFileId: editorFileId,
+          targetLanguageId: editorTargetLanguageId,
+          clearValues: true,
+        },
+      });
+
+      const targetDetail = await apiRequest<TranslationFileDetail>(
+        `/projects/${projectId}/translation-files/${cloned.id}`,
+        { auth: true },
+      );
+
+      const chunkSize = 40;
+      const suggestionsByKey = new Map<string, string>();
+
+      for (let start = 0; start < sourceEntries.length; start += chunkSize) {
+        const chunk = sourceEntries.slice(start, start + chunkSize);
+
+        const batch = await apiRequest<AiBatchSuggestionsResponse>(`/projects/${projectId}/ai/suggestions/batch`, {
+          method: 'POST',
+          auth: true,
+          body: {
+            targetLanguageCode: targetLanguage.code,
+            context: aiContext.trim() || undefined,
+            glossary:
+              aiGlossaryEntries.length > 0
+                ? aiGlossaryEntries.map((entry) => ({
+                    sourceTerm: entry.sourceTerm,
+                    targetTerm: entry.targetTerm,
+                    languageCodes: entry.languageCodes.length > 0 ? entry.languageCodes : undefined,
+                  }))
+                : undefined,
+            items: chunk.map((entry) => ({
+              key: entry.path,
+              referenceText: entry.value,
+              currentText: '',
+            })),
+          },
+        });
+
+        batch.suggestions.forEach((suggestion) => {
+          if (suggestion.key && typeof suggestion.suggestion === 'string') {
+            suggestionsByKey.set(suggestion.key, suggestion.suggestion);
+          }
+        });
+      }
+
+      const translatedContent = JSON.parse(JSON.stringify(targetDetail.content)) as Record<string, unknown>;
+
+      suggestionsByKey.forEach((suggestion, key) => {
+        setStringByPath(translatedContent, key, suggestion);
+      });
+
+      const updated = await apiRequest<TranslationFileDetail>(
+        `/projects/${projectId}/translation-files/${cloned.id}/content`,
+        {
+          method: 'PATCH',
+          auth: true,
+          body: { content: translatedContent },
+        },
+      );
+
+      notify.success(
+        `Traducción IA completada: ${suggestionsByKey.size}/${sourceEntries.length} claves en ${updated.filename}`,
+      );
+
+      await load();
+      await openEditorForFile(updated.id, { skipNotify: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : '';
+      if (message.includes('pro users only')) {
+        setProModalOpen(true);
+        return;
+      }
+
+      notify.error('No se pudo traducir el archivo completo con IA');
+    } finally {
+      setAiSuggestBusy(false);
+      setEditorBusy(false);
+    }
+  };
+
   const getEditorContentSnapshot = (): Record<string, unknown> | null => {
     if (editorMode === 'RAW') {
       try {
@@ -1101,51 +1339,12 @@ export function ProjectDetailPage() {
         body: {},
       });
 
-      if (result.reports.length === 0) {
-        setAnalysisReport(null);
+      const loaded = await hydrateAnalysisFromReportMetas(result.reports);
+
+      if (!loaded) {
         notify.info('El análisis no genero reportes');
         return;
       }
-
-      const reports = await Promise.all(
-        result.reports.map((reportMeta) =>
-          apiRequest<AnalysisReport>(`/projects/${projectId}/analysis/reports/${reportMeta.id}`, {
-            auth: true,
-          }),
-        ),
-      );
-
-      setReportGroupByReportId(
-        Object.fromEntries(
-          reports
-            .filter((report) => Boolean(report.fileGroup?.id))
-            .map((report) => [report.id, report.fileGroup?.id as string]),
-        ),
-      );
-
-      setReportGroupNameByReportId(
-        Object.fromEntries(
-          result.reports.map((report) => [
-            report.id,
-            report.fileGroupName?.trim() ? report.fileGroupName : 'Grupo sin identificar',
-          ]),
-        ),
-      );
-
-      const combinedReport: AnalysisReport = {
-        id: reports[0]?.id ?? 'combined-report',
-        projectId,
-        createdAt: reports[0]?.createdAt ?? new Date().toISOString(),
-        fileGroup: null,
-        issues: reports.flatMap((report) => report.issues),
-      };
-
-      setAnalysisReport(combinedReport);
-      setIssueTypeFilter('ALL');
-      setIssueLanguageFilter('ALL');
-      setExpandedIssueId(null);
-      setActiveIssueId(null);
-      setPersistedResolvedIds(new Set());
 
       notify.success(`Análisis completado: ${result.issuesCreated} issue(s) en ${result.reportsCreated} reporte(s)`);
     } catch {
@@ -1845,6 +2044,7 @@ export function ProjectDetailPage() {
               <LanguagesSection
                 languages={languages}
                 referenceLanguageId={project?.referenceLanguageId}
+                languageCoverageByLanguageId={languageCoverageByLanguageId}
                 code={code}
                 name={name}
                 loading={loading}
@@ -1931,6 +2131,7 @@ export function ProjectDetailPage() {
                   void cloneEditorFileToLanguage(true);
                 }}
                 onRequestCopyContent={() => setCloneConfirmOpen(true)}
+                onTranslateFullWithAi={translateEditorFileToLanguageWithAi}
                 sortedIssues={sortedFilteredIssues}
                 activeIssueId={activeIssueId}
                 resolvedIssueIds={resolvedIssueIds}
@@ -2004,6 +2205,7 @@ export function ProjectDetailPage() {
                 languageNameById={languageNameById}
                 fileGroupNameByReportId={reportGroupNameByReportId}
                 onRunAnalysis={runAnalysis}
+                onLoadLatestAnalysis={() => void loadLatestAnalysis(false)}
                 onExportIssuesCsv={exportIssuesCsv}
                 onRequestAiSuggestions={() => {
                   setActiveSection('editor');

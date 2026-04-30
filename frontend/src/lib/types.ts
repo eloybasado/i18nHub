@@ -122,6 +122,36 @@ export type RunAnalysisResponse = {
   }>;
 };
 
+export type LatestAnalysisResponse = {
+  reportsCreated: number;
+  issuesCreated: number;
+  createdAt: string | null;
+  reports: Array<{
+    id: string;
+    fileGroupId: string;
+    fileGroupName: string;
+    issuesCreated: number;
+  }>;
+};
+
+export type LanguageCoverageItem = {
+  languageId: string;
+  code: string;
+  name: string;
+  totalKeys: number;
+  correctKeys: number;
+  missingKeys: number;
+  untranslatedKeys: number;
+  interpolationMismatchKeys: number;
+  incorrectNestingKeys: number;
+  completionPercent: number;
+};
+
+export type LanguageCoverageResponse = {
+  referenceLanguageId: string | null;
+  languages: LanguageCoverageItem[];
+};
+
 export type AiGlossaryEntry = {
   id: string;
   sourceTerm: string;

@@ -77,6 +77,8 @@ export class AnalysisService {
       );
     }
 
+    const runCreatedAt = new Date();
+
     const reports = await this.prisma.$transaction(async (tx) => {
       const createdReports: Array<{
         id: string;
@@ -98,6 +100,7 @@ export class AnalysisService {
           data: {
             projectId,
             fileGroupId: fileGroup.id,
+            createdAt: runCreatedAt,
           },
           select: {
             id: true,
@@ -162,6 +165,235 @@ export class AnalysisService {
     }
 
     return report;
+  }
+
+  async getLatestRun(projectId: string) {
+    const latestReport = await this.prisma.analysisReport.findFirst({
+      where: {
+        projectId,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: {
+        createdAt: true,
+      },
+    });
+
+    if (!latestReport) {
+      return {
+        reportsCreated: 0,
+        issuesCreated: 0,
+        createdAt: null,
+        reports: [],
+      };
+    }
+
+    const reports = await this.prisma.analysisReport.findMany({
+      where: {
+        projectId,
+        createdAt: latestReport.createdAt,
+      },
+      include: {
+        fileGroup: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            issues: true,
+          },
+        },
+      },
+      orderBy: {
+        id: 'asc',
+      },
+    });
+
+    return {
+      reportsCreated: reports.length,
+      issuesCreated: reports.reduce(
+        (acc, report) => acc + report._count.issues,
+        0,
+      ),
+      createdAt: latestReport.createdAt,
+      reports: reports.map((report) => ({
+        id: report.id,
+        fileGroupId: report.fileGroupId,
+        fileGroupName: report.fileGroup?.name ?? 'Grupo sin identificar',
+        issuesCreated: report._count.issues,
+      })),
+    };
+  }
+
+  async getLanguageCoverage(projectId: string) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: {
+        id: true,
+        referenceLanguageId: true,
+        languages: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        fileGroups: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    if (!project.referenceLanguageId) {
+      return {
+        referenceLanguageId: null,
+        languages: project.languages.map((language) => ({
+          languageId: language.id,
+          code: language.code,
+          name: language.name,
+          totalKeys: 0,
+          correctKeys: 0,
+          missingKeys: 0,
+          untranslatedKeys: 0,
+          interpolationMismatchKeys: 0,
+          incorrectNestingKeys: 0,
+          completionPercent: 0,
+        })),
+      };
+    }
+
+    const files = await this.prisma.translationFile.findMany({
+      where: {
+        fileGroup: {
+          projectId,
+        },
+      },
+      select: {
+        languageId: true,
+        fileGroupId: true,
+        content: true,
+      },
+    });
+
+    const fileByLanguageAndGroup = new Map<
+      string,
+      { content: Prisma.JsonValue }
+    >();
+    for (const file of files) {
+      fileByLanguageAndGroup.set(`${file.languageId}:${file.fileGroupId}`, {
+        content: file.content,
+      });
+    }
+
+    const statsByLanguage = new Map(
+      project.languages.map((language) => [
+        language.id,
+        {
+          languageId: language.id,
+          code: language.code,
+          name: language.name,
+          totalKeys: 0,
+          correctKeys: 0,
+          missingKeys: 0,
+          untranslatedKeys: 0,
+          interpolationMismatchKeys: 0,
+          incorrectNestingKeys: 0,
+        },
+      ]),
+    );
+
+    for (const fileGroup of project.fileGroups) {
+      const referenceFile = fileByLanguageAndGroup.get(
+        `${project.referenceLanguageId}:${fileGroup.id}`,
+      );
+
+      if (!referenceFile) {
+        continue;
+      }
+
+      const referenceMap = flattenJsonToMap(referenceFile.content);
+      const referenceKeys = new Set(referenceMap.keys());
+
+      for (const language of project.languages) {
+        const stats = statsByLanguage.get(language.id);
+        if (!stats) {
+          continue;
+        }
+
+        if (language.id === project.referenceLanguageId) {
+          stats.totalKeys += referenceKeys.size;
+          stats.correctKeys += referenceKeys.size;
+          continue;
+        }
+
+        const targetFile = fileByLanguageAndGroup.get(
+          `${language.id}:${fileGroup.id}`,
+        );
+
+        if (!targetFile) {
+          stats.totalKeys += referenceKeys.size;
+          stats.missingKeys += referenceKeys.size;
+          continue;
+        }
+
+        const targetMap = flattenJsonToMap(targetFile.content);
+        const targetKeys = new Set(targetMap.keys());
+        const targetAllPaths = collectAllNodePaths(targetFile.content);
+
+        for (const key of referenceKeys) {
+          stats.totalKeys += 1;
+
+          if (targetKeys.has(key)) {
+            const targetValue = targetMap.get(key) ?? '';
+            if (!targetValue.trim()) {
+              stats.untranslatedKeys += 1;
+              continue;
+            }
+
+            const referenceValue = referenceMap.get(key) ?? '';
+            if (hasInterpolationMismatch(referenceValue, targetValue)) {
+              stats.interpolationMismatchKeys += 1;
+              continue;
+            }
+
+            stats.correctKeys += 1;
+            continue;
+          }
+
+          if (!targetAllPaths.has(key)) {
+            stats.missingKeys += 1;
+            continue;
+          }
+
+          const misnestedKey = findMisnestedKey(key, targetKeys);
+          if (misnestedKey) {
+            stats.incorrectNestingKeys += 1;
+          } else {
+            stats.missingKeys += 1;
+          }
+        }
+      }
+    }
+
+    return {
+      referenceLanguageId: project.referenceLanguageId,
+      languages: Array.from(statsByLanguage.values()).map((stats) => ({
+        ...stats,
+        completionPercent:
+          stats.totalKeys === 0
+            ? 0
+            : Math.round((stats.correctKeys / stats.totalKeys) * 100),
+      })),
+    };
   }
 
   private async buildIssuesForFileGroup(params: {

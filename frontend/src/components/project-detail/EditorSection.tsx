@@ -56,7 +56,7 @@ type AiSuggestionScope = 'CURRENT_FILE_ISSUES' | 'ALL_FILES_ISSUES' | 'ALL_FILES
 
 type AiSuggestionIssueType = 'MISSING_KEY' | 'UNUSED_KEY' | 'INTERPOLATION_MISMATCH' | 'INCORRECT_NESTING';
 
-type CloneMode = 'EMPTY_STRUCTURE' | 'COPY_CONTENT';
+type CloneMode = 'EMPTY_STRUCTURE' | 'COPY_CONTENT' | 'AI_TRANSLATE_FULL';
 
 const AI_SUGGESTION_SCOPE_OPTIONS: SelectModalOption<AiSuggestionScope>[] = [
   {
@@ -138,6 +138,7 @@ type EditorSectionProps = {
   onCloneModeChange: (mode: CloneMode) => void;
   onCloneEmptyStructure: () => void;
   onRequestCopyContent: () => void;
+  onTranslateFullWithAi: () => void | Promise<void>;
   sortedIssues: AnalysisIssue[];
   activeIssueId: string | null;
   resolvedIssueIds: Set<string>;
@@ -199,6 +200,7 @@ export function EditorSection({
   onCloneModeChange,
   onCloneEmptyStructure,
   onRequestCopyContent,
+  onTranslateFullWithAi,
   sortedIssues,
   activeIssueId,
   resolvedIssueIds,
@@ -749,6 +751,7 @@ export function EditorSection({
           onCloneModeChange={onCloneModeChange}
           onCloneEmptyStructure={onCloneEmptyStructure}
           onRequestCopyContent={onRequestCopyContent}
+          onTranslateFullWithAi={onTranslateFullWithAi}
         />
       </div>
 
