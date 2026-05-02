@@ -393,7 +393,17 @@ export class TranslationFilesService {
       throw new NotFoundException('Translation file not found in project');
     }
 
-    if (user.tier === Tier.PRO) {
+    // Fetch project owner to check if versioning is enabled for this project
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: {
+        owner: {
+          select: { tier: true },
+        },
+      },
+    });
+
+    if (project?.owner.tier === Tier.PRO) {
       return this.prisma.$transaction(async (tx) => {
         const latestVersion = await tx.translationFileVersion.findFirst({
           where: {

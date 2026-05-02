@@ -3,6 +3,8 @@ import { hash } from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+const ADMIN_USER_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@i18nhub.local';
+const ADMIN_USER_NAME = process.env.SEED_ADMIN_NAME ?? 'Usuario Admin';
 const FREE_USER_EMAIL = process.env.SEED_FREE_EMAIL ?? 'free@i18nhub.local';
 const PRO_USER_EMAIL = process.env.SEED_PRO_EMAIL ?? 'pro@i18nhub.local';
 const FREE_USER_NAME = process.env.SEED_FREE_NAME ?? 'Usuario Free';
@@ -12,6 +14,7 @@ const DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD ?? 'ChangeMe123!';
 async function upsertSeedUser(params: {
   email: string;
   name: string;
+  role: GlobalRole;
   tier: Tier;
   passwordHash: string;
 }) {
@@ -21,6 +24,7 @@ async function upsertSeedUser(params: {
     },
     update: {
       name: params.name,
+      role: params.role,
       tier: params.tier,
       passwordHash: params.passwordHash,
       refreshTokenHash: null,
@@ -28,7 +32,7 @@ async function upsertSeedUser(params: {
     create: {
       email: params.email,
       name: params.name,
-      role: GlobalRole.MEMBER,
+      role: params.role,
       tier: params.tier,
       passwordHash: params.passwordHash,
     },
@@ -43,8 +47,17 @@ async function main() {
   const passwordHash = await hash(DEFAULT_PASSWORD, 10);
 
   await upsertSeedUser({
+    email: ADMIN_USER_EMAIL,
+    name: ADMIN_USER_NAME,
+    role: GlobalRole.ADMIN,
+    tier: Tier.PRO,
+    passwordHash,
+  });
+
+  await upsertSeedUser({
     email: FREE_USER_EMAIL,
     name: FREE_USER_NAME,
+    role: GlobalRole.MEMBER,
     tier: Tier.FREE,
     passwordHash,
   });
@@ -52,6 +65,7 @@ async function main() {
   await upsertSeedUser({
     email: PRO_USER_EMAIL,
     name: PRO_USER_NAME,
+    role: GlobalRole.MEMBER,
     tier: Tier.PRO,
     passwordHash,
   });
@@ -59,6 +73,7 @@ async function main() {
   process.stdout.write(
     [
       'Seed completed',
+      `ADMIN -> ${ADMIN_USER_EMAIL}`,
       `FREE -> ${FREE_USER_EMAIL}`,
       `PRO  -> ${PRO_USER_EMAIL}`,
       `Password -> ${DEFAULT_PASSWORD}`,

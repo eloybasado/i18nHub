@@ -1,3 +1,4 @@
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { FilePenLine, FileSearch, FileUp, Languages } from 'lucide-react';
 import { Button } from '../ui/button';
 
@@ -30,7 +31,11 @@ export function OverviewSection({
   onGoToSection,
 }: OverviewSectionProps) {
   return (
-    <div>
+    <div className="relative">
+      {/* Decorative space-cat Lottie (small, no container) */}
+      <div className="pointer-events-none fixed right-0 bottom-0 z-50 hidden lg:block [mask-image:linear-gradient(to_bottom,transparent,black_30%)]">
+        <DotLottieReact src="/animations/space-cat.lottie" loop autoplay className="h-[20vw] w-[20vw]" />
+      </div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-zinc-900">Resumen del proyecto</p>

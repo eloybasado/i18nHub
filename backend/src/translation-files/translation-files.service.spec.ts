@@ -382,15 +382,97 @@ describe('TranslationFilesService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('updateContent creates a new version for PRO users before updating', async () => {
+  it('updateContent creates a new version when project owner is PRO', async () => {
     prismaMock.translationFile.findFirst = jest.fn().mockResolvedValue({
       id: 'tf-1',
       content: {
         title: 'Anterior',
       },
     });
+    prismaMock.project.findUnique = jest.fn().mockResolvedValue({
+      owner: {
+        tier: Tier.PRO,
+      },
+    });
     txMock.translationFileVersion.findFirst.mockResolvedValue({
       versionNumber: 3,
+    });
+
+    await service.updateContent(
+      'project-1',
+      'tf-1',
+      {
+        content: {
+          title: 'Nuevo',
+        },
+      },
+      {
+        sub: 'user-free',
+        email: 'free@test.com',
+        role: GlobalRole.MEMBER,
+        tier: Tier.FREE,
+      },
+    );
+
+    expect(txMock.translationFileVersion.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          translationFileId: 'tf-1',
+          versionNumber: 4,
+          createdById: 'user-free',
+        }),
+      }),
+    );
+    expect(txMock.translationFile.update).toHaveBeenCalled();
+  });
+
+  it('updateContent does not create versions when project owner is FREE', async () => {
+    prismaMock.translationFile.findFirst = jest.fn().mockResolvedValue({
+      id: 'tf-1',
+      content: {
+        title: 'Anterior',
+      },
+    });
+    prismaMock.project.findUnique = jest.fn().mockResolvedValue({
+      owner: {
+        tier: Tier.FREE,
+      },
+    });
+
+    await service.updateContent(
+      'project-1',
+      'tf-1',
+      {
+        content: {
+          title: 'Nuevo',
+        },
+      },
+      {
+        sub: 'user-pro',
+        email: 'pro@test.com',
+        role: GlobalRole.MEMBER,
+        tier: Tier.PRO,
+      },
+    );
+
+    expect(prismaMock.translationFile.update).toHaveBeenCalled();
+    expect(txMock.translationFileVersion.create).not.toHaveBeenCalled();
+  });
+
+  it('updateContent creates version for any user when project owner is PRO', async () => {
+    prismaMock.translationFile.findFirst = jest.fn().mockResolvedValue({
+      id: 'tf-1',
+      content: {
+        title: 'Anterior',
+      },
+    });
+    prismaMock.project.findUnique = jest.fn().mockResolvedValue({
+      owner: {
+        tier: Tier.PRO,
+      },
+    });
+    txMock.translationFileVersion.findFirst.mockResolvedValue({
+      versionNumber: 2,
     });
 
     await service.updateContent(
@@ -413,40 +495,12 @@ describe('TranslationFilesService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           translationFileId: 'tf-1',
-          versionNumber: 4,
+          versionNumber: 3,
           createdById: 'user-pro',
         }),
       }),
     );
     expect(txMock.translationFile.update).toHaveBeenCalled();
-  });
-
-  it('updateContent does not create versions for FREE users', async () => {
-    prismaMock.translationFile.findFirst = jest.fn().mockResolvedValue({
-      id: 'tf-1',
-      content: {
-        title: 'Anterior',
-      },
-    });
-
-    await service.updateContent(
-      'project-1',
-      'tf-1',
-      {
-        content: {
-          title: 'Nuevo',
-        },
-      },
-      {
-        sub: 'user-free',
-        email: 'free@test.com',
-        role: GlobalRole.MEMBER,
-        tier: Tier.FREE,
-      },
-    );
-
-    expect(prismaMock.translationFile.update).toHaveBeenCalled();
-    expect(txMock.translationFileVersion.create).not.toHaveBeenCalled();
   });
 
   it('listVersions returns versions for PRO users', async () => {
