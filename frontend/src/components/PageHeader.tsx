@@ -1,8 +1,10 @@
-import { FolderKanban, Languages, LogOut, Menu, UserRound, X } from 'lucide-react';
+import { FolderKanban, Languages, LogOut, Menu, ShieldCheck, UserRound, X } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { apiRequest } from '../lib/api';
 import { session } from '../lib/session';
+import type { AccountProfile } from '../lib/types';
 import { Button } from './ui/button';
 
 type Props = {
@@ -14,12 +16,33 @@ type Props = {
 export function PageHeader({ title, subtitle, action }: Props) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profile, setProfile] = useState<AccountProfile | null>(null);
+
   const spacerClassName = menuOpen ? 'mb-5 h-56 sm:h-16' : 'mb-5 h-16';
 
   const handleLogout = () => {
     session.clear();
     navigate('/login');
   };
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const data = await apiRequest<AccountProfile>('/auth/profile', { auth: true });
+        setProfile(data);
+      } catch {
+        setProfile(null);
+      }
+    };
+
+    if (session.getAccessToken() || session.getRefreshToken()) {
+      void loadProfile();
+    }
+  }, []);
+
+  const isAdmin = profile?.role === 'ADMIN';
+
+  // no sliding indicator: keep nav simple and rely on smooth transitions
 
   return (
     <>
@@ -44,10 +67,10 @@ export function PageHeader({ title, subtitle, action }: Props) {
               <NavLink
                 to="/projects"
                 className={({ isActive }) =>
-                  `inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors ${
+                  `inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm font-medium transition duration-200 ease-in-out transform ${
                     isActive
-                      ? 'bg-zinc-900 text-white shadow-sm'
-                      : 'text-zinc-600 hover:bg-white/70 hover:text-zinc-900'
+                      ? 'bg-zinc-900 text-white shadow-sm scale-100'
+                      : 'text-zinc-600 hover:bg-white/70 hover:text-zinc-900 hover:-translate-y-0.5'
                   }`
                 }
               >
@@ -58,16 +81,32 @@ export function PageHeader({ title, subtitle, action }: Props) {
               <NavLink
                 to="/profile"
                 className={({ isActive }) =>
-                  `inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors ${
+                  `inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm font-medium transition duration-200 ease-in-out transform ${
                     isActive
-                      ? 'bg-zinc-900 text-white shadow-sm'
-                      : 'text-zinc-600 hover:bg-white/70 hover:text-zinc-900'
+                      ? 'bg-zinc-900 text-white shadow-sm scale-100'
+                      : 'text-zinc-600 hover:bg-white/70 hover:text-zinc-900 hover:-translate-y-0.5'
                   }`
                 }
               >
                 <UserRound size={14} />
                 Mi perfil
               </NavLink>
+
+              {isAdmin ? (
+                <NavLink
+                  to="/admin"
+                  className={({ isActive }) =>
+                    `inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm font-medium transition duration-200 ease-in-out transform ${
+                      isActive
+                        ? 'bg-zinc-900 text-white shadow-sm scale-100'
+                        : 'text-zinc-600 hover:bg-white/70 hover:text-zinc-900 hover:-translate-y-0.5'
+                    }`
+                  }
+                >
+                  <ShieldCheck size={14} />
+                  Administración
+                </NavLink>
+              ) : null}
             </nav>
 
             {action ? <div className="hidden sm:flex">{action}</div> : null}
@@ -125,6 +164,21 @@ export function PageHeader({ title, subtitle, action }: Props) {
                   <UserRound size={14} />
                   Mi perfil
                 </NavLink>
+
+                {isAdmin ? (
+                  <NavLink
+                    to="/admin"
+                    onClick={() => setMenuOpen(false)}
+                    className={({ isActive }) =>
+                      `inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                        isActive ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
+                      }`
+                    }
+                  >
+                    <ShieldCheck size={14} />
+                    Administración
+                  </NavLink>
+                ) : null}
 
                 <button
                   type="button"

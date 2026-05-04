@@ -23,6 +23,36 @@ export type AccountProfile = {
   createdAt: string;
 };
 
+export type AdminUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: 'ADMIN' | 'MEMBER';
+  tier: 'FREE' | 'PRO';
+  createdAt: string;
+  ownedProjectsCount: number;
+  membershipsCount: number;
+};
+
+export type AdminProject = {
+  id: string;
+  name: string;
+  description?: string | null;
+  i18nPattern: I18nPattern;
+  ownerId: string;
+  createdAt: string;
+  owner: {
+    id: string;
+    email: string;
+    name: string;
+    role: 'ADMIN' | 'MEMBER';
+    tier: 'FREE' | 'PRO';
+  };
+  membersCount: number;
+  languagesCount: number;
+  fileGroupsCount: number;
+};
+
 export type Project = {
   id: string;
   name: string;
