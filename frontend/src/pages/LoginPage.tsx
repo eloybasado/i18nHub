@@ -1,10 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
-import { Languages } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { SiteBrand } from '../components/common/SiteBrand';
 import { apiRequest } from '../lib/api';
 import { session } from '../lib/session';
 import { notify } from '../lib/toast';
@@ -53,15 +53,7 @@ export function LoginPage() {
           <div className="absolute inset-0 bg-[linear-gradient(130deg,rgba(244,244,245,0.4)_0%,rgba(244,244,245,0.05)_50%,rgba(244,244,245,0.6)_100%)]" />
 
           <div className="absolute inset-0 flex flex-col justify-between p-8 text-zinc-900">
-            <Link
-              to="/"
-              className="inline-flex w-fit items-center gap-2 rounded-lg border border-zinc-300 bg-white/90 px-3 py-1.5 text-zinc-900"
-            >
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-zinc-900 text-zinc-100">
-                <Languages size={14} />
-              </span>
-              <span className="text-sm font-extrabold tracking-tight">i18nHub</span>
-            </Link>
+            <SiteBrand to="/" className="border-zinc-300 bg-white/90 text-zinc-900 hover:bg-zinc-100" />
 
             <div className="max-w-md space-y-3">
               <h1 className="text-4xl font-black tracking-tight">Vuelve a tus proyectos de traducción</h1>

@@ -7,19 +7,21 @@ import {
   CalendarClock,
   CheckCircle2,
   ExternalLink,
+  Eye,
   FileCode,
-  FolderKanban,
   Github,
   Languages,
   ListChecks,
   Milestone,
-  ShieldCheck,
+  RotateCcw,
   Sparkles,
   Target,
+  Users,
   Workflow,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { Link } from 'react-router-dom';
+import { PublicHeader } from '../components/common/PublicHeader';
 import { FeatureCard, StepCard } from '../components/landing/LandingCards';
 import { Button } from '../components/ui/button';
 
@@ -173,19 +175,10 @@ export function LandingPage() {
 
   return (
     <main className="min-h-screen bg-white text-zinc-900">
-      <header className="border-b border-zinc-200/90 bg-white/90 shadow-[0_6px_18px_rgba(0,0,0,0.04)] backdrop-blur">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-2.5 md:px-6">
-          <Link
-            to="/"
-            className="group inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1 transition-colors hover:bg-zinc-100"
-          >
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-zinc-900 text-white">
-              <Languages size={13} />
-            </span>
-            <span className="text-sm font-extrabold tracking-tight text-zinc-950">i18nHub</span>
-          </Link>
-
-          <nav className="flex items-center gap-2">
+      <PublicHeader
+        className="bg-white/90 shadow-[0_6px_18px_rgba(0,0,0,0.04)] backdrop-blur"
+        rightSlot={
+          <>
             <Link to="/login">
               <Button
                 type="button"
@@ -198,9 +191,9 @@ export function LandingPage() {
             <Link to="/register">
               <Button type="button">Crear cuenta</Button>
             </Link>
-          </nav>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <section className="relative overflow-hidden border-b border-zinc-200/80 bg-[radial-gradient(circle_at_80%_20%,rgba(24,24,27,0.07),transparent_45%),linear-gradient(180deg,#fff_0%,#fafafa_100%)] md:min-h-[540px]">
         <div className="pointer-events-none absolute inset-y-0 -right-[10vw] hidden w-[84vw] md:block">
@@ -252,17 +245,17 @@ export function LandingPage() {
             </div>
 
             <div className="grid gap-2 text-base text-zinc-700 sm:grid-cols-3">
-              <div className="inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-white/95 px-3 py-2">
-                <CheckCircle2 size={15} className="text-zinc-800" />
-                Sin configurar backend
+              <div className="inline-flex items-center gap-3 rounded-md border border-zinc-200 bg-white/95 px-4 py-3">
+                <ListChecks size={22} className="text-zinc-800 shrink-0" />
+                Análisis automático de keys
               </div>
-              <div className="inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-white/95 px-3 py-2">
-                <CheckCircle2 size={15} className="text-zinc-800" />
-                Editor visual y RAW
+              <div className="inline-flex items-center gap-3 rounded-md border border-zinc-200 bg-white/95 px-4 py-3">
+                <CalendarClock size={22} className="text-zinc-800 shrink-0" />
+                Historial de versiones (PRO)
               </div>
-              <div className="inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-white/95 px-3 py-2">
-                <CheckCircle2 size={15} className="text-zinc-800" />
-                Descarga JSON final
+              <div className="inline-flex items-center gap-3 rounded-md border border-zinc-200 bg-white/95 px-4 py-3">
+                <Users size={22} className="text-zinc-800 shrink-0" />
+                Gestión de equipos por rol
               </div>
             </div>
           </div>
@@ -300,23 +293,24 @@ export function LandingPage() {
             </div>
             <div>
               <h3 className="mt-2 text-3xl font-black tracking-tight text-zinc-950">
-                Validacion de traducciones con foco técnico
+                Control de calidad en traducciones
               </h3>
               <p className="mt-3 text-lg text-zinc-600">
-                Detecta inconsistencias entre idiomas y revisa contenido clave sin navegar entre mil archivos.
+                Análisis automático para detectar inconsistencias entre idiomas, keys faltantes y problemas de
+                interpolación.
               </p>
               <div className="mt-4 flex flex-wrap gap-3 text-base text-zinc-700">
                 <span className="inline-flex items-center gap-1.5">
                   <CheckCircle2 size={15} />
-                  Comparacion por idioma
+                  Detecta keys faltantes
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <CheckCircle2 size={15} />
-                  Interpolaciones controladas
+                  Interpolaciones consistentes
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <CheckCircle2 size={15} />
-                  Menos errores en release
+                  Panel de issues por idioma
                 </span>
               </div>
             </div>
@@ -331,12 +325,12 @@ export function LandingPage() {
               </p>
               <ul className="mt-5 space-y-3 text-lg leading-relaxed text-zinc-100">
                 <li className="flex items-start gap-3">
-                  <FolderKanban size={18} className="mt-0.5 shrink-0" />
-                  <span>Proyectos persistentes para equipos</span>
+                  <Users size={18} className="mt-0.5 shrink-0" />
+                  <span>Gestión de equipos y permisos por rol</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <ShieldCheck size={18} className="mt-0.5 shrink-0" />
-                  <span>Análisis de keys faltantes y sobrantes</span>
+                  <FileCode size={18} className="mt-0.5 shrink-0" />
+                  <span>Tres modos de edición: visual, RAW y árbol</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <BrainCircuit size={18} className="mt-0.5 shrink-0" />
@@ -364,11 +358,123 @@ export function LandingPage() {
         </div>
       </section>
 
+      <section className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
+        <div className="mb-8 max-w-3xl">
+          <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">
+            Editor de árbol para estructuras complejas
+          </h2>
+          <p className="mt-3 text-lg text-zinc-600 md:text-xl">
+            Más allá de visual y RAW. Edita tus JSONs en forma de árbol jerárquico para ver exactamente dónde va cada
+            traducción sin perder contexto de la estructura.
+          </p>
+        </div>
+
+        <article className="grid gap-6 rounded-2xl border border-zinc-200 bg-white p-5 md:grid-cols-[minmax(0,1fr)_340px] md:items-center md:p-8">
+          <div>
+            <h3 className="text-2xl font-black tracking-tight text-zinc-950">Visualiza la jerarquía de tus datos</h3>
+            <p className="mt-3 text-lg text-zinc-600">
+              En lugar de ver el JSON plano o fila por fila, el modo árbol te muestra la estructura completa de forma
+              navegable. Ideal para proyectos con JSONs profundos.
+            </p>
+            <ul className="mt-5 space-y-3 text-base text-zinc-700">
+              <li className="flex items-start gap-3">
+                <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+                <span>Expande y contrae secciones según necesites</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+                <span>Edita valores directamente sin dejar la vista</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+                <span>Acceso rápido a cualquier nivel de anidación</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="overflow-hidden rounded-xl">
+            <DotLottieReact src="/animations/data.lottie" autoplay loop className="h-64 w-full md:h-72" />
+          </div>
+        </article>
+      </section>
+
+      <section className="border-y border-zinc-200 bg-zinc-50/70">
+        <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
+          <div className="mb-8 max-w-3xl">
+            <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">
+              Historial de versiones <span className="text-sm text-zinc-500">PRO</span>
+            </h2>
+            <p className="mt-3 text-lg text-zinc-600 md:text-xl">
+              Cada cambio queda guardado automáticamente. Previsualiza versiones anteriores o restaura si algo salió
+              mal, todo sin perder tiempo buscando backups.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <article className="rounded-2xl border border-zinc-200 bg-white p-6">
+              <div className="flex items-start gap-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+                  <Eye size={18} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-zinc-900">Previsualiza sin restaurar</h3>
+                  <p className="mt-2 text-sm text-zinc-600">
+                    Ve exactamente qué contenido había en cualquier versión anterior sin sobrescribir tu trabajo actual.
+                  </p>
+                </div>
+              </div>
+            </article>
+
+            <article className="rounded-2xl border border-zinc-200 bg-white p-6">
+              <div className="flex items-start gap-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 text-green-700">
+                  <RotateCcw size={18} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-zinc-900">Restaura en un click</h3>
+                  <p className="mt-2 text-sm text-zinc-600">
+                    Revierte cambios accidentales restaurando cualquier versión anterior al instante.
+                  </p>
+                </div>
+              </div>
+            </article>
+
+            <article className="rounded-2xl border border-zinc-200 bg-white p-6">
+              <div className="flex items-start gap-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-700">
+                  <CalendarClock size={18} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-zinc-900">Historial automático</h3>
+                  <p className="mt-2 text-sm text-zinc-600">
+                    Se crea un snapshot antes de cada cambio. Sin configuración, todo se guarda por defecto.
+                  </p>
+                </div>
+              </div>
+            </article>
+
+            <article className="rounded-2xl border border-zinc-200 bg-white p-6">
+              <div className="flex items-start gap-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                  <Users size={18} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-zinc-900">Quién hizo qué</h3>
+                  <p className="mt-2 text-sm text-zinc-600">
+                    Cada versión registra quién la creó y cuándo, ideal para auditoría y responsabilidad en equipo.
+                  </p>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section className="border-y border-zinc-200 bg-zinc-50/80">
         <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
           <div className="mb-8 max-w-3xl">
             <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">
-              IA útil para localización real
+              IA útil para localización real <span className="text-sm text-zinc-500">PRO</span>
             </h2>
             <p className="mt-3 text-lg text-zinc-600 md:text-xl">
               i18nHub integra IA de forma práctica: no para reemplazar al equipo, sino para acelerar revisiones y
@@ -385,7 +491,7 @@ export function LandingPage() {
       </section>
 
       <section className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
-        <div className="grid gap-10 md:grid-cols-[minmax(0,1fr)_300px] md:items-start">
+        <div className="grid gap-10 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <div className="max-w-3xl">
             <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">¿Qué es este TFM?</h2>
             <p className="mt-3 text-lg text-zinc-600">
@@ -420,23 +526,7 @@ export function LandingPage() {
             </div>
           </div>
 
-          <aside className="rounded-2xl bg-zinc-50/90 p-6">
-            <p className="text-sm font-semibold uppercase tracking-[0.1em] text-zinc-500">Objetivo académico</p>
-            <ul className="mt-4 space-y-3 text-sm leading-relaxed text-zinc-700">
-              <li className="flex items-start gap-2">
-                <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-zinc-800" />
-                Diseñar un producto usable para equipos pequeños.
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-zinc-800" />
-                Validar calidad de traducciones con reglas objetivas.
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-zinc-800" />
-                Integrar IA de forma responsable y medible.
-              </li>
-            </ul>
-          </aside>
+          <img src="/logo.svg" alt="i18nHub" className="h-56 w-56 object-contain md:h-72 md:w-72" />
         </div>
       </section>
 
@@ -620,13 +710,13 @@ export function LandingPage() {
           <div>
             <p className="font-semibold uppercase tracking-[0.1em] text-zinc-500">Legal</p>
             <div className="mt-2 flex flex-col gap-1.5">
-              <a href="#" className="hover:text-zinc-900 hover:underline">
+              <Link to="/privacy-policy" className="hover:text-zinc-900 hover:underline">
                 Política de privacidad
-              </a>
-              <a href="#" className="hover:text-zinc-900 hover:underline">
+              </Link>
+              <Link to="/terms-of-use" className="hover:text-zinc-900 hover:underline">
                 Términos de uso
-              </a>
-              <p className="pt-1 text-zinc-500">Copyright 2026 i18nHub. All rights reserved.</p>
+              </Link>
+              <p className="pt-1 text-zinc-500">© 2026 i18nHub. All rights reserved.</p>
             </div>
           </div>
         </div>

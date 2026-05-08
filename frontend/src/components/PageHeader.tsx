@@ -1,4 +1,4 @@
-import { FolderKanban, Languages, LogOut, Menu, ShieldCheck, UserRound, X } from 'lucide-react';
+import { FolderKanban, LogOut, Menu, ShieldCheck, UserRound, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
@@ -57,9 +57,7 @@ export function PageHeader({ title, subtitle, action }: Props) {
               to="/projects"
               className="group inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1 transition-colors hover:bg-zinc-100"
             >
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-zinc-900 text-white">
-                <Languages size={13} />
-              </span>
+              <img src="/logo.svg" alt="i18nHub" className="h-6 w-6 rounded-md object-contain" />
               <span className="text-sm font-extrabold tracking-tight text-zinc-950">i18nHub</span>
             </Link>
 

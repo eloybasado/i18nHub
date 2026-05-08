@@ -1,10 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
-import { Languages } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { SiteBrand } from '../components/common/SiteBrand';
 import { apiRequest } from '../lib/api';
 import { session } from '../lib/session';
 import { notify } from '../lib/toast';
@@ -54,15 +54,7 @@ export function RegisterPage() {
           <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(24,24,27,0.78)_0%,rgba(24,24,27,0.46)_45%,rgba(24,24,27,0.82)_100%)]" />
 
           <div className="absolute inset-0 flex flex-col justify-between p-8 text-zinc-100">
-            <Link
-              to="/"
-              className="inline-flex w-fit items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/70 px-3 py-1.5"
-            >
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-zinc-100 text-zinc-900">
-                <Languages size={14} />
-              </span>
-              <span className="text-sm font-extrabold tracking-tight">i18nHub</span>
-            </Link>
+            <SiteBrand to="/" className="border-zinc-700 bg-zinc-800/70 text-zinc-100 hover:bg-zinc-800" />
 
             <div className="max-w-md space-y-3">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-300">Comienza rápido</p>
