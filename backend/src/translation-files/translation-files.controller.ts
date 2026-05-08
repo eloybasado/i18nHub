@@ -82,6 +82,22 @@ export class TranslationFilesController {
     );
   }
 
+  @Get(':translationFileId/versions/:versionId')
+  @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR, ProjectRole.VIEWER)
+  getVersionContent(
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
+    @Param('translationFileId', new ParseUUIDPipe()) translationFileId: string,
+    @Param('versionId', new ParseUUIDPipe()) versionId: string,
+    @Req() request: Request & { user: JwtPayload },
+  ) {
+    return this.translationFilesService.getVersionContent(
+      projectId,
+      translationFileId,
+      versionId,
+      request.user,
+    );
+  }
+
   @Patch(':translationFileId/content')
   @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR)
   updateContent(

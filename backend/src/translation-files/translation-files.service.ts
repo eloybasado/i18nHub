@@ -232,6 +232,61 @@ export class TranslationFilesService {
     });
   }
 
+  async getVersionContent(
+    projectId: string,
+    translationFileId: string,
+    versionId: string,
+    user: JwtPayload,
+  ) {
+    await this.ensureProjectExists(projectId);
+
+    if (user.tier !== Tier.PRO) {
+      throw new ForbiddenException(
+        'Version history is available for PRO users only',
+      );
+    }
+
+    const translationFile = await this.prisma.translationFile.findFirst({
+      where: {
+        id: translationFileId,
+        fileGroup: {
+          projectId,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!translationFile) {
+      throw new NotFoundException('Translation file not found in project');
+    }
+
+    const version = await this.prisma.translationFileVersion.findFirst({
+      where: {
+        id: versionId,
+        translationFileId,
+      },
+      select: {
+        id: true,
+        versionNumber: true,
+        content: true,
+      },
+    });
+
+    if (!version) {
+      throw new NotFoundException(
+        'Version not found for this translation file',
+      );
+    }
+
+    return {
+      id: version.id,
+      versionNumber: version.versionNumber,
+      content: version.content,
+    };
+  }
+
   async ingest(projectId: string, dto: IngestTranslationFilesDto) {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },

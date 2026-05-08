@@ -1641,6 +1641,24 @@ export function ProjectDetailPage() {
     }
   };
 
+  const viewEditorVersion = async (versionId: string) => {
+    if (!projectId || !editorFileId) {
+      return null;
+    }
+
+    try {
+      const response = await apiRequest<{
+        id: string;
+        versionNumber: number;
+        content: Record<string, unknown>;
+      }>(`/projects/${projectId}/translation-files/${editorFileId}/versions/${versionId}`, { auth: true });
+      return response.content;
+    } catch {
+      notify.error('No se pudo cargar la versión');
+      return null;
+    }
+  };
+
   const requestAiSuggestions = async () => {
     if (getCurrentUserTier() === 'FREE') {
       setProModalOpen(true);
@@ -2159,6 +2177,7 @@ export function ProjectDetailPage() {
                 versions={editorVersions}
                 versionsLoading={editorVersionsLoading}
                 onRestoreVersion={restoreEditorVersion}
+                onViewVersion={viewEditorVersion}
                 aiSuggestBusy={aiSuggestBusy}
                 onRequestAiSuggestions={requestAiSuggestions}
                 aiSuggestions={aiSuggestions}

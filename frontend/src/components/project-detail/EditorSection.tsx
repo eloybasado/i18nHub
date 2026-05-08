@@ -164,6 +164,7 @@ type EditorSectionProps = {
   onApplySelectedAiSuggestions: () => void | Promise<void>;
   isPro: boolean;
   onVersionHistoryProGate: () => void;
+  onViewVersion?: (versionId: string) => Promise<Record<string, unknown> | null>;
   onAddEntry: (path: string, value: string) => void;
   onDeleteEntry: (path: string) => void;
 };
@@ -226,6 +227,7 @@ export function EditorSection({
   onApplySelectedAiSuggestions,
   isPro,
   onVersionHistoryProGate,
+  onViewVersion,
   onAddEntry,
   onDeleteEntry,
 }: EditorSectionProps) {
@@ -391,6 +393,7 @@ export function EditorSection({
             disabled={!editorFileId || editorBusy}
             isPro={isPro}
             onProGate={onVersionHistoryProGate}
+            onViewVersion={onViewVersion}
           />
 
           <div className="group relative">

@@ -41,14 +41,11 @@ export class AdminService {
   async listUsers(opts?: { page?: number; perPage?: number; q?: string }) {
     const page = opts?.page ?? 1;
     const perPage = opts?.perPage ?? 20;
-    const q = opts?.q ?? undefined;
+    const q = opts?.q?.toLowerCase() ?? undefined;
 
     const where = q
       ? {
-          OR: [
-            { email: { contains: q, mode: 'insensitive' } },
-            { name: { contains: q, mode: 'insensitive' } },
-          ],
+          OR: [{ email: { contains: q } }, { name: { contains: q } }],
         }
       : undefined;
 
@@ -131,14 +128,11 @@ export class AdminService {
   async listProjects(opts?: { page?: number; perPage?: number; q?: string }) {
     const page = opts?.page ?? 1;
     const perPage = opts?.perPage ?? 20;
-    const q = opts?.q ?? undefined;
+    const q = opts?.q?.toLowerCase() ?? undefined;
 
     const where = q
       ? {
-          OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { description: { contains: q, mode: 'insensitive' } },
-          ],
+          OR: [{ name: { contains: q } }, { description: { contains: q } }],
         }
       : undefined;
 
