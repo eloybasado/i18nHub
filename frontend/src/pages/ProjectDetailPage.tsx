@@ -1618,7 +1618,9 @@ export function ProjectDetailPage() {
     return (
       translationFiles.find(
         (file) => file.language.id === targetLanguageForIssue && (!fileGroupId || file.fileGroup.id === fileGroupId),
-      ) ?? translationFiles.find((file) => file.language.id === issue.languageId) ?? null
+      ) ??
+      translationFiles.find((file) => file.language.id === issue.languageId) ??
+      null
     );
   };
 
@@ -2589,7 +2591,8 @@ export function ProjectDetailPage() {
             <DialogHeader>
               <DialogTitle>Asignar idioma a archivos</DialogTitle>
               <DialogDescription>
-                Algunos archivos no tienen el idioma detectable. Selecciona a qué idioma corresponde cada archivo antes de continuar.
+                Algunos archivos no tienen el idioma detectable. Selecciona a qué idioma corresponde cada archivo antes
+                de continuar.
               </DialogDescription>
             </DialogHeader>
 
@@ -2599,9 +2602,7 @@ export function ProjectDetailPage() {
                   <p className="mb-1 text-sm font-medium text-zinc-700 truncate">{path}</p>
                   <Select
                     value={languageMapping[path] ?? ''}
-                    onChange={(e) =>
-                      setLanguageMapping((prev) => ({ ...prev, [path]: e.target.value || null }))
-                    }
+                    onChange={(e) => setLanguageMapping((prev) => ({ ...prev, [path]: e.target.value || null }))}
                   >
                     <option value="">Selecciona un idioma</option>
                     {languages.map((lang) => (
