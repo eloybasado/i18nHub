@@ -526,7 +526,7 @@ export function LandingPage() {
             </div>
           </div>
 
-          <img src="/logo.svg" alt="i18nHub" className="h-56 w-56 object-contain md:h-72 md:w-72" />
+          <img src="/logo.svg" alt="i18nHub" className="logo-float-hover h-56 w-56 object-contain md:h-72 md:w-72" />
         </div>
       </section>
 

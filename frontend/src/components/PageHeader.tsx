@@ -1,10 +1,11 @@
 import { FolderKanban, LogOut, Menu, ShieldCheck, UserRound, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
 import { session } from '../lib/session';
 import type { AccountProfile } from '../lib/types';
+import { SiteBrand } from './common/SiteBrand';
 import { Button } from './ui/button';
 
 type Props = {
@@ -53,13 +54,7 @@ export function PageHeader({ title, subtitle, action }: Props) {
             {subtitle ? ` - ${subtitle}` : ''}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 py-2.5">
-            <Link
-              to="/projects"
-              className="group inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1 transition-colors hover:bg-zinc-100"
-            >
-              <img src="/logo.svg" alt="i18nHub" className="h-6 w-6 rounded-md object-contain" />
-              <span className="text-sm font-extrabold tracking-tight text-zinc-950">i18nHub</span>
-            </Link>
+            <SiteBrand to="/projects" variant="bare" className="hidden sm:flex hover:opacity-90" />
 
             <nav className="hidden items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 sm:flex">
               <NavLink

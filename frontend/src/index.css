@@ -81,6 +81,25 @@
 }
 
 @layer components {
+  @keyframes logoFloat {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  .logo-float-hover {
+    will-change: transform;
+  }
+
+  .logo-float-hover:hover {
+    animation: logoFloat 2.8s ease-in-out infinite;
+  }
+
   @keyframes metallicSweep {
     0% {
       transform: translateX(-125%);
