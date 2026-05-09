@@ -7,6 +7,7 @@ type EditorIssueListProps = {
   resolvedIssueIds: Set<string>;
   languageNameById: Map<string, { name: string; code: string }>;
   onGoToIssue: (issue: AnalysisIssue) => void;
+  onFixIncorrectNesting: (issue: AnalysisIssue) => void;
 };
 
 const BADGE_CLASS: Record<IssueType, string> = {
@@ -36,6 +37,7 @@ export function EditorIssueList({
   resolvedIssueIds,
   languageNameById,
   onGoToIssue,
+  onFixIncorrectNesting,
 }: EditorIssueListProps) {
   if (issues.length === 0) return null;
 
@@ -51,7 +53,7 @@ export function EditorIssueList({
         {resolvedCount > 0 && (
           <span className="flex items-center gap-1 text-xs text-emerald-600">
             <CheckCircle2 size={12} />
-            {resolvedCount} resuelto{resolvedCount !== 1 ? 's' : ''} en este archivo
+            {resolvedCount} resuelto{resolvedCount !== 1 ? 's' : ''}
           </span>
         )}
       </div>
@@ -64,34 +66,49 @@ export function EditorIssueList({
 
           return (
             <li key={issue.id}>
-              <button
-                type="button"
+              <div
                 className={`flex w-full items-center gap-2 border-l-2 px-3 py-2 text-left transition-colors hover:bg-zinc-50 ${
                   isActive ? `bg-zinc-50 ${ACTIVE_BORDER_CLASS[issue.type]}` : 'border-l-transparent'
                 } ${isResolved ? 'opacity-50' : ''}`}
-                onClick={() => onGoToIssue(issue)}
               >
-                {isResolved ? (
-                  <CheckCircle2 size={13} className="shrink-0 text-emerald-500" />
-                ) : (
-                  <span className="h-3 w-3 shrink-0 rounded-full border border-zinc-300" />
-                )}
-                <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${BADGE_CLASS[issue.type]}`}>
-                  {TYPE_LABEL[issue.type]}
-                </span>
-                <span
-                  className={`min-w-0 flex-1 truncate font-mono text-xs ${
-                    isResolved ? 'text-zinc-400 line-through' : 'text-zinc-800'
-                  }`}
+                <button
+                  type="button"
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  onClick={() => onGoToIssue(issue)}
                 >
-                  {issue.key}
-                </span>
-                {lang && (
-                  <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium uppercase text-zinc-500">
-                    {lang.code}
+                  {isResolved ? (
+                    <CheckCircle2 size={13} className="shrink-0 text-emerald-500" />
+                  ) : (
+                    <span className="h-3 w-3 shrink-0 rounded-full border border-zinc-300" />
+                  )}
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${BADGE_CLASS[issue.type]}`}>
+                    {TYPE_LABEL[issue.type]}
                   </span>
-                )}
-              </button>
+                  <span
+                    className={`min-w-0 flex-1 truncate font-mono text-xs ${
+                      isResolved ? 'text-zinc-400 line-through' : 'text-zinc-800'
+                    }`}
+                  >
+                    {issue.key}
+                  </span>
+                  {lang && (
+                    <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium uppercase text-zinc-500">
+                      {lang.code}
+                    </span>
+                  )}
+                </button>
+
+                {issue.type === 'INCORRECT_NESTING' ? (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded border border-amber-300 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-800 transition-colors hover:bg-amber-200"
+                    onClick={() => onFixIncorrectNesting(issue)}
+                    title="Mover la clave a su ruta correcta"
+                  >
+                    Arreglar
+                  </button>
+                ) : null}
+              </div>
             </li>
           );
         })}

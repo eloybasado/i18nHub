@@ -418,6 +418,7 @@ type JsonTreeEditorProps = {
   onUpdateEntry: (path: string, value: string) => void;
   onAddEntry: (path: string, value: string) => void;
   onDeleteEntry: (path: string) => void;
+  onFixIncorrectNesting: (issue: AnalysisIssue) => void;
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -431,6 +432,7 @@ export function JsonTreeEditor({
   onUpdateEntry,
   onAddEntry,
   onDeleteEntry,
+  onFixIncorrectNesting,
 }: JsonTreeEditorProps) {
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [draftValue, setDraftValue] = useState('');
@@ -600,11 +602,31 @@ export function JsonTreeEditor({
           <div className="grid gap-3">
             {editing?.issue && (
               <div className={`rounded-lg px-3 py-2 text-sm font-medium ${ISSUE_BADGE[editing.issue.type]}`}>
-                {ISSUE_LABEL[editing.issue.type]}
-                {editing.issue.details &&
-                  ` — ${Object.entries(editing.issue.details)
-                    .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`)
-                    .join(' | ')}`}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <span>{ISSUE_LABEL[editing.issue.type]}</span>
+                    {editing.issue.details && (
+                      <span className="ml-2 text-xs font-normal text-zinc-600">
+                        {Object.entries(editing.issue.details)
+                          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`)
+                          .join(' | ')}
+                      </span>
+                    )}
+                  </div>
+                  {editing.issue.type === 'INCORRECT_NESTING' ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="shrink-0 bg-zinc-900 text-white hover:bg-zinc-800"
+                      onClick={() => {
+                        onFixIncorrectNesting(editing.issue as AnalysisIssue);
+                        setEditing(null);
+                      }}
+                    >
+                      Arreglar
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             )}
             {editing?.referenceValue !== undefined && (

@@ -167,6 +167,8 @@ type EditorSectionProps = {
   onViewVersion?: (versionId: string) => Promise<Record<string, unknown> | null>;
   onAddEntry: (path: string, value: string) => void;
   onDeleteEntry: (path: string) => void;
+  onFixIncorrectNesting: (issue: AnalysisIssue) => void;
+  editorHasChanges: boolean;
 };
 
 export function EditorSection({
@@ -230,6 +232,8 @@ export function EditorSection({
   onViewVersion,
   onAddEntry,
   onDeleteEntry,
+  onFixIncorrectNesting,
+  editorHasChanges,
 }: EditorSectionProps) {
   const rawEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [rawExpanded, setRawExpanded] = useState(false);
@@ -292,68 +296,56 @@ export function EditorSection({
         Abre un archivo cargado, edita su JSON y guarda cambios para corregir issues o preparar nuevas traducciones.
       </p>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
-        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Paso 1</p>
-          <p className="mt-1 text-sm font-semibold text-zinc-900">Selecciona archivo</p>
-          <p className="mt-1 text-xs text-zinc-500">Abre el archivo con el que vas a trabajar.</p>
-          <EditorFilePickerModal
-            translationFiles={translationFiles}
-            selectedFileId={editorFileId}
-            onSelectFile={onSelectEditorFile}
-            onClearSelection={onResetEditorSelection}
-            disabled={editorBusy}
-          />
-        </div>
-
-        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Paso 2</p>
-          <p className="mt-1 text-sm font-semibold text-zinc-900">Modo de edición</p>
-          <p className="mt-1 text-xs text-zinc-500">Elige entre edición RAW, visual o árbol.</p>
-          <div className="mt-3 grid grid-cols-3 gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50 p-1.5">
-            <button
-              type="button"
-              className={`rounded px-2 py-2 text-xs font-medium transition-colors ${
-                editorMode === 'RAW' ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
-              }`}
-              onClick={() => onChangeEditorMode('RAW')}
-            >
-              RAW
-            </button>
-            <button
-              type="button"
-              className={`rounded px-2 py-2 text-xs font-medium transition-colors ${
-                editorMode === 'VISUAL' ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
-              }`}
-              onClick={() => onChangeEditorMode('VISUAL')}
-            >
-              Visual
-            </button>
-            <button
-              type="button"
-              className={`inline-flex items-center justify-center gap-1 rounded px-2 py-2 text-xs font-medium transition-colors ${
-                editorMode === 'TREE' ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
-              }`}
-              onClick={() => onChangeEditorMode('TREE')}
-            >
-              <Network size={11} />
-              Árbol
-            </button>
+      <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Archivo</p>
+            <p className="mt-1 text-sm text-zinc-600">Abre el archivo con el que vas a trabajar.</p>
+            <div className="mt-3 max-w-2xl">
+              <EditorFilePickerModal
+                translationFiles={translationFiles}
+                selectedFileId={editorFileId}
+                onSelectFile={onSelectEditorFile}
+                onClearSelection={onResetEditorSelection}
+                disabled={editorBusy}
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Paso 3</p>
-          <p className="mt-1 text-sm font-semibold text-zinc-900">Guardar cambios</p>
-          <p className="mt-1 text-xs text-zinc-500">Persistir cambios en el archivo seleccionado.</p>
-          <Button
-            className="mt-3 w-full"
-            type="button"
-            onClick={onSaveEditorFile}
-            disabled={!editorFileId || editorBusy}
-          >
-            {editorBusy ? 'Guardando...' : 'Guardar archivo'}
-          </Button>
+          <div className="min-w-0 lg:w-[22rem]">
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Modo de edición</p>
+            <p className="mt-1 text-sm text-zinc-600">Cambia la vista sin volver arriba.</p>
+            <div className="mt-3 grid grid-cols-3 gap-1.5 rounded-2xl border border-zinc-200 bg-zinc-50 p-1.5">
+              <button
+                type="button"
+                className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                  editorMode === 'RAW' ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
+                }`}
+                onClick={() => onChangeEditorMode('RAW')}
+              >
+                RAW
+              </button>
+              <button
+                type="button"
+                className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                  editorMode === 'VISUAL' ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
+                }`}
+                onClick={() => onChangeEditorMode('VISUAL')}
+              >
+                Visual
+              </button>
+              <button
+                type="button"
+                className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                  editorMode === 'TREE' ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'
+                }`}
+                onClick={() => onChangeEditorMode('TREE')}
+              >
+                <Network size={11} />
+                Árbol
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -418,6 +410,7 @@ export function EditorSection({
         resolvedIssueIds={resolvedIssueIds}
         languageNameById={languageNameById}
         onGoToIssue={onGoToIssue}
+        onFixIncorrectNesting={onFixIncorrectNesting}
       />
 
       <div className="mt-3 flex flex-wrap items-end gap-2">
@@ -482,6 +475,19 @@ export function EditorSection({
         onApplySelectedAiSuggestions={onApplySelectedAiSuggestions}
       />
 
+      {editorFileId ? (
+        <div className="fixed bottom-4 right-4 z-40 sm:bottom-6 sm:right-6">
+          <Button
+            type="button"
+            onClick={() => void onSaveEditorFile()}
+            disabled={!editorFileId || editorBusy || !editorHasChanges}
+            className={`${editorHasChanges ? 'save-dirty-btn' : ''} metallic-shine-btn border-zinc-950 shadow-xl`}
+          >
+            {editorBusy ? 'Guardando...' : 'Guardar archivo'}
+          </Button>
+        </div>
+      ) : null}
+
       {editorMode === 'TREE' ? (
         <div className="mt-3">
           {treeReferenceEntries && treeReferenceEntries.length > 0 && (
@@ -509,6 +515,7 @@ export function EditorSection({
             onUpdateEntry={onEditorVisualEntryChange}
             onAddEntry={onAddEntry}
             onDeleteEntry={onDeleteEntry}
+            onFixIncorrectNesting={onFixIncorrectNesting}
           />
         </div>
       ) : editorMode === 'RAW' ? (

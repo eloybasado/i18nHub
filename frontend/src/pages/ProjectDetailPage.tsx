@@ -35,6 +35,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
+import { Select } from '../components/ui/select';
 import { apiRequest } from '../lib/api';
 import { session } from '../lib/session';
 import { notify } from '../lib/toast';
@@ -203,6 +204,21 @@ const deleteKeyByPath = (obj: Record<string, unknown>, path: string): void => {
   }
 };
 
+const getValueByPath = (obj: unknown, path: string): unknown => {
+  const parts = path.split('.');
+  let cursor: unknown = obj;
+
+  for (const part of parts) {
+    if (!cursor || typeof cursor !== 'object') {
+      return undefined;
+    }
+
+    cursor = Array.isArray(cursor) ? (cursor as unknown[])[Number(part)] : (cursor as Record<string, unknown>)[part];
+  }
+
+  return cursor;
+};
+
 const buildVisualContent = (baseContent: Record<string, unknown>, entries: VisualEntry[]) => {
   const cloned = JSON.parse(JSON.stringify(baseContent)) as Record<string, unknown>;
   entries.forEach((entry) => {
@@ -281,6 +297,7 @@ export function ProjectDetailPage() {
   const [editorVisualEntries, setEditorVisualEntries] = useState<VisualEntry[]>([]);
   const [editorVisualQuery, setEditorVisualQuery] = useState('');
   const [editorJson, setEditorJson] = useState('');
+  const [editorBaselineJson, setEditorBaselineJson] = useState('');
   const [editorTargetLanguageId, setEditorTargetLanguageId] = useState('');
   const [editorCloneMode, setEditorCloneMode] = useState<CloneMode>('EMPTY_STRUCTURE');
   const [cloneConfirmOpen, setCloneConfirmOpen] = useState(false);
@@ -309,6 +326,8 @@ export function ProjectDetailPage() {
   const [loading, setLoading] = useState(false);
   const [teamLoading, setTeamLoading] = useState(false);
   const [error, setError] = useState('');
+  const [languageMappingModalOpen, setLanguageMappingModalOpen] = useState(false);
+  const [languageMapping, setLanguageMapping] = useState<Record<string, string | null>>({});
   const [proModalOpen, setProModalOpen] = useState(false);
   const hasConfiguredLanguages = languages.length > 0;
 
@@ -376,12 +395,49 @@ export function ProjectDetailPage() {
 
       setIngestFiles(parsed);
       notify.info(`Archivos preparados: ${parsed.length}`);
+
+      // If project uses FOLDER_PER_LOCALE, detect files without a clear locale
+      if (project?.i18nPattern === 'FOLDER_PER_LOCALE') {
+        const languageCodes = new Set(languages.map((l) => l.code.toLowerCase()));
+        const needsMapping = parsed.filter((p) => {
+          const normalizedPath = p.path.replace(/\\/g, '/');
+          const parts = normalizedPath.split('/').filter(Boolean);
+          const locale = parts.at(-2);
+          return !locale || !languageCodes.has((locale || '').toLowerCase());
+        });
+
+        if (needsMapping.length > 0) {
+          // open modal to ask user to map each file to a language
+          setLanguageMappingModalOpen(true);
+          const initial: Record<string, string | null> = {};
+          for (const item of needsMapping) initial[item.path] = null;
+          setLanguageMapping(initial);
+        }
+      }
     } catch {
       setIngestFiles([]);
       const message = 'Uno o varios archivos seleccionados no son JSON valido';
       setError(message);
       notify.error(message);
     }
+  };
+
+  const applyLanguageMapping = () => {
+    // For each mapping, rewrite the ingestFiles path to include the selected language folder
+    setIngestFiles((previous) =>
+      previous.map((item) => {
+        const mapped = languageMapping[item.path];
+        if (!mapped) return item;
+        const filename = item.path.replace(/\\/g, '/').split('/').pop() || item.path;
+        return {
+          ...item,
+          path: `${mapped}/${filename}`,
+        };
+      }),
+    );
+
+    setLanguageMappingModalOpen(false);
+    notify.info('Mapeado de idiomas aplicado a archivos seleccionados');
   };
 
   const hydrateAnalysisFromReportMetas = useCallback(
@@ -952,6 +1008,7 @@ export function ProjectDetailPage() {
       setEditorVisualEntries(extractStringEntries(file.content));
       setEditorVisualQuery(initialVisualQuery);
       setEditorJson(JSON.stringify(file.content, null, 2));
+      setEditorBaselineJson(JSON.stringify(file.content, null, 2));
       setEditorTargetLanguageId('');
       setEditorCloneMode('EMPTY_STRUCTURE');
       setCloneConfirmOpen(false);
@@ -1067,6 +1124,7 @@ export function ProjectDetailPage() {
       setEditorSourceContent(updated.content);
       setEditorVisualEntries(extractStringEntries(updated.content));
       setEditorJson(JSON.stringify(updated.content, null, 2));
+      setEditorBaselineJson(JSON.stringify(updated.content, null, 2));
 
       if (isPro) {
         try {
@@ -1253,6 +1311,24 @@ export function ProjectDetailPage() {
 
     return buildVisualContent(editorSourceContent, editorVisualEntries);
   };
+
+  const editorCurrentSnapshotJson = useMemo(() => {
+    if (!editorFileId) {
+      return '';
+    }
+
+    if (editorMode === 'RAW') {
+      return editorJson;
+    }
+
+    if (!editorSourceContent) {
+      return '';
+    }
+
+    return JSON.stringify(buildVisualContent(editorSourceContent, editorVisualEntries), null, 2);
+  }, [editorFileId, editorMode, editorJson, editorSourceContent, editorVisualEntries]);
+
+  const editorHasChanges = Boolean(editorFileId) && editorCurrentSnapshotJson !== editorBaselineJson;
 
   const downloadBlob = (filename: string, data: Blob) => {
     const url = URL.createObjectURL(data);
@@ -1536,15 +1612,20 @@ export function ProjectDetailPage() {
     notify.success(`CSV exportado: ${link.download}`);
   };
 
+  const findIssueTargetFile = (issue: AnalysisReport['issues'][number]) => {
+    const fileGroupId = reportGroupByReportId[issue.reportId];
+    const targetLanguageForIssue = issue.languageId;
+    return (
+      translationFiles.find(
+        (file) => file.language.id === targetLanguageForIssue && (!fileGroupId || file.fileGroup.id === fileGroupId),
+      ) ?? translationFiles.find((file) => file.language.id === issue.languageId) ?? null
+    );
+  };
+
   const goToIssueInEditor = async (issue: AnalysisReport['issues'][number]) => {
     setActiveIssueId(issue.id);
 
-    const fileGroupId = reportGroupByReportId[issue.reportId];
-    const targetLanguageForIssue = issue.languageId;
-    const targetFile =
-      translationFiles.find(
-        (file) => file.language.id === targetLanguageForIssue && (!fileGroupId || file.fileGroup.id === fileGroupId),
-      ) ?? translationFiles.find((file) => file.language.id === issue.languageId);
+    const targetFile = findIssueTargetFile(issue);
 
     if (!targetFile) {
       notify.error('No se encontro archivo para este issue en el idioma seleccionado');
@@ -1851,6 +1932,100 @@ export function ProjectDetailPage() {
     setEditorJson(JSON.stringify(current, null, 2));
   };
 
+  const fixIncorrectNestingIssue = async (issue: AnalysisIssue) => {
+    if (!projectId) {
+      return;
+    }
+
+    const foundPath = typeof issue.details?.foundPath === 'string' ? issue.details.foundPath : '';
+    const expectedPath = typeof issue.details?.expectedPath === 'string' ? issue.details.expectedPath : issue.key;
+
+    if (!foundPath || !expectedPath) {
+      notify.error('No se pudo determinar la ruta correcta para ese issue');
+      return;
+    }
+
+    const targetFile = findIssueTargetFile(issue);
+    if (!targetFile) {
+      notify.error('No se encontró el archivo de destino para ese issue');
+      return;
+    }
+
+    setActiveIssueId(issue.id);
+    setActiveSection('editor');
+
+    let sourceContent: Record<string, unknown> | null = null;
+    let fileId = targetFile.id;
+
+    if (editorFileId === targetFile.id) {
+      if (editorMode === 'RAW') {
+        try {
+          sourceContent = JSON.parse(editorJson) as Record<string, unknown>;
+        } catch {
+          notify.error('El JSON actual no es valido y no se puede corregir ese issue');
+          return;
+        }
+      } else if (editorSourceContent) {
+        sourceContent = buildVisualContent(editorSourceContent, editorVisualEntries);
+      }
+    } else {
+      const opened = await openEditorForFile(targetFile.id, {
+        initialVisualQuery: expectedPath,
+        skipNotify: true,
+      });
+
+      if (!opened) {
+        return;
+      }
+
+      sourceContent = JSON.parse(JSON.stringify(opened.content)) as Record<string, unknown>;
+      fileId = opened.id;
+    }
+
+    if (!sourceContent) {
+      notify.error('No se pudo cargar el contenido del archivo para corregir el issue');
+      return;
+    }
+
+    const movedValue = getValueByPath(sourceContent, foundPath);
+
+    if (typeof movedValue !== 'string') {
+      notify.error('No se encontró un valor de texto en la ruta mal anidada');
+      return;
+    }
+
+    deleteKeyByPath(sourceContent, foundPath);
+    setStringByPath(sourceContent, expectedPath, movedValue);
+
+    setEditorBusy(true);
+    try {
+      const updated = await apiRequest<TranslationFileDetail>(
+        `/projects/${projectId}/translation-files/${fileId}/content`,
+        {
+          method: 'PATCH',
+          auth: true,
+          body: { content: sourceContent },
+        },
+      );
+
+      setEditorFileId(updated.id);
+      setEditorFileMeta(updated);
+      setEditorSourceContent(updated.content);
+      setEditorVisualEntries(extractStringEntries(updated.content));
+      setEditorJson(JSON.stringify(updated.content, null, 2));
+      setEditorBaselineJson(JSON.stringify(updated.content, null, 2));
+      setPersistedResolvedIds((prev) => new Set(prev).add(issue.id));
+      setHighlightedIssuePath(expectedPath);
+      setEditorVisualQuery(expectedPath);
+
+      notify.success('Clave reubicada en su ruta correcta y marcada como resuelta');
+    } catch {
+      notify.error('No se pudo corregir el issue de anidado');
+    } finally {
+      setEditorBusy(false);
+    }
+  };
+
   const applySelectedAiSuggestions = async () => {
     if (aiSuggestions.length === 0) {
       notify.error('No hay sugerencias IA para aplicar');
@@ -2138,6 +2313,7 @@ export function ProjectDetailPage() {
                   setEditorVisualEntries([]);
                   setEditorVisualQuery('');
                   setEditorJson('');
+                  setEditorBaselineJson('');
                   setEditorTargetLanguageId('');
                   setEditorCloneMode('EMPTY_STRUCTURE');
                   setEditorVersions([]);
@@ -2196,6 +2372,8 @@ export function ProjectDetailPage() {
                 currentFileIssues={currentFileIssues}
                 onAddEntry={addEntry}
                 onDeleteEntry={deleteEntry}
+                onFixIncorrectNesting={fixIncorrectNestingIssue}
+                editorHasChanges={editorHasChanges}
               />
             </div>
 
@@ -2403,6 +2581,51 @@ export function ProjectDetailPage() {
                 </Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={languageMappingModalOpen} onOpenChange={setLanguageMappingModalOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Asignar idioma a archivos</DialogTitle>
+              <DialogDescription>
+                Algunos archivos no tienen el idioma detectable. Selecciona a qué idioma corresponde cada archivo antes de continuar.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-3">
+              {Object.keys(languageMapping).map((path) => (
+                <div key={path}>
+                  <p className="mb-1 text-sm font-medium text-zinc-700 truncate">{path}</p>
+                  <Select
+                    value={languageMapping[path] ?? ''}
+                    onChange={(e) =>
+                      setLanguageMapping((prev) => ({ ...prev, [path]: e.target.value || null }))
+                    }
+                  >
+                    <option value="">Selecciona un idioma</option>
+                    {languages.map((lang) => (
+                      <option key={lang.id} value={lang.code}>
+                        {lang.name} ({lang.code})
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ))}
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setLanguageMappingModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={applyLanguageMapping}
+                disabled={Object.values(languageMapping).some((v) => !v)}
+              >
+                Aplicar mapeo
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </main>
