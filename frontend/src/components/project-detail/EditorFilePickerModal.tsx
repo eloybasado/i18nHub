@@ -122,7 +122,7 @@ export function EditorFilePickerModal({
           </Select>
         </div>
 
-        <div className="max-h-[56vh] overflow-auto rounded-xl border border-zinc-200 bg-zinc-50/50 p-2">
+        <div className="max-h-[56vh] overflow-auto rounded-xl bg-zinc-50/50 p-2">
           {groupedFiles.length === 0 ? (
             <p className="px-2 py-3 text-sm text-zinc-500">No hay archivos con ese filtro.</p>
           ) : (

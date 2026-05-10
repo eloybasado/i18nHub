@@ -22,7 +22,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import type { AnalysisIssue, Language, TranslationFileSummary, TranslationFileVersionSummary } from '../../lib/types';
 import { Button } from '../ui/button';
-import { ConfirmModal } from '../ui/confirm-modal';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { SelectModal, type SelectModalOption } from '../ui/select-modal';
 import { AiSuggestionReviewList } from './AiSuggestionReviewList';
@@ -125,10 +125,10 @@ type EditorSectionProps = {
   editorCloneMode: CloneMode;
   selectedTargetLanguage: Language | undefined;
   downloadBusy: boolean;
-  onSelectEditorFile: (fileId: string) => void;
+  onSelectEditorFile: (fileId: string) => void | Promise<void>;
   onResetEditorSelection: () => void;
   onChangeEditorMode: (mode: 'RAW' | 'VISUAL' | 'TREE') => void;
-  onSaveEditorFile: () => void | Promise<void>;
+  onSaveEditorFile: () => void | Promise<boolean>;
   onEditorJsonChange: (value: string) => void;
   onEditorVisualQueryChange: (value: string) => void;
   onEditorVisualEntryChange: (path: string, value: string) => void;
@@ -242,8 +242,56 @@ export function EditorSection({
   const [addPath, setAddPath] = useState('');
   const [addValue, setAddValue] = useState('');
   const [deletingPath, setDeletingPath] = useState<string | null>(null);
+  const [pendingEditorFileId, setPendingEditorFileId] = useState<string | null>(null);
+  const [changeFileModalOpen, setChangeFileModalOpen] = useState(false);
   const visualHighlightFocusedPathRef = useRef<string | null>(null);
   const rawHighlightInteractedRef = useRef(false);
+
+  const requestEditorFileChange = (fileId: string) => {
+    if (fileId === editorFileId) {
+      return;
+    }
+
+    if (editorHasChanges) {
+      setPendingEditorFileId(fileId);
+      setChangeFileModalOpen(true);
+      return;
+    }
+
+    void onSelectEditorFile(fileId);
+  };
+
+  const cancelFileChange = () => {
+    setChangeFileModalOpen(false);
+    setPendingEditorFileId(null);
+  };
+
+  const changeWithoutSaving = () => {
+    if (!pendingEditorFileId) {
+      cancelFileChange();
+      return;
+    }
+
+    const nextFileId = pendingEditorFileId;
+    cancelFileChange();
+    void onSelectEditorFile(nextFileId);
+  };
+
+  const saveAndChange = async () => {
+    if (!pendingEditorFileId) {
+      cancelFileChange();
+      return;
+    }
+
+    const nextFileId = pendingEditorFileId;
+    const saved = await onSaveEditorFile();
+    if (!saved) {
+      return;
+    }
+
+    cancelFileChange();
+    await onSelectEditorFile(nextFileId);
+  };
 
   useEffect(() => {
     if (!highlightedVisualPath) {
@@ -305,7 +353,7 @@ export function EditorSection({
               <EditorFilePickerModal
                 translationFiles={translationFiles}
                 selectedFileId={editorFileId}
-                onSelectFile={onSelectEditorFile}
+                onSelectFile={requestEditorFileChange}
                 onClearSelection={onResetEditorSelection}
                 disabled={editorBusy}
               />
@@ -487,6 +535,32 @@ export function EditorSection({
           </Button>
         </div>
       ) : null}
+
+      <Dialog
+        open={changeFileModalOpen}
+        onOpenChange={(open) => (!open ? cancelFileChange() : setChangeFileModalOpen(true))}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tienes cambios sin guardar</DialogTitle>
+            <DialogDescription>
+              Si cambias de archivo ahora, puedes guardar primero o seguir sin guardar y perder los cambios actuales.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={cancelFileChange}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="outline" onClick={() => void saveAndChange()} disabled={editorBusy}>
+              Guardar y cambiar
+            </Button>
+            <Button type="button" onClick={changeWithoutSaving}>
+              Cambiar sin guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {editorMode === 'TREE' ? (
         <div className="mt-3">
@@ -767,17 +841,33 @@ export function EditorSection({
 
       <div className="mt-5 border-t border-zinc-200 pt-4" />
 
-      <ConfirmModal
-        open={Boolean(deletingPath)}
-        onOpenChange={(open) => !open && setDeletingPath(null)}
-        title="Eliminar clave"
-        description={`Vas a eliminar "${deletingPath ?? ''}". Esta acción no se puede deshacer.`}
-        confirmLabel="Eliminar"
-        onConfirm={() => {
-          onDeleteEntry(deletingPath!);
-          setDeletingPath(null);
-        }}
-      />
+      <Dialog open={Boolean(deletingPath)} onOpenChange={(open: boolean) => !open && setDeletingPath(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar clave</DialogTitle>
+            <DialogDescription>
+              Vas a eliminar "{deletingPath ?? ''}". Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setDeletingPath(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              className="border-rose-300 bg-rose-100 text-rose-900 hover:bg-rose-200"
+              onClick={() => {
+                if (deletingPath) {
+                  onDeleteEntry(deletingPath);
+                }
+                setDeletingPath(null);
+              }}
+            >
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

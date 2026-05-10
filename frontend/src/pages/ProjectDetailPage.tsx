@@ -1114,7 +1114,7 @@ export function ProjectDetailPage() {
   };
 
   const saveEditorFile = async () => {
-    if (!projectId || !editorFileId) return;
+    if (!projectId || !editorFileId) return false;
 
     let parsedContent: Record<string, unknown>;
 
@@ -1123,12 +1123,12 @@ export function ProjectDetailPage() {
         parsedContent = JSON.parse(editorJson) as Record<string, unknown>;
       } catch {
         notify.error('El JSON no es valido. Revisa la sintaxis antes de guardar.');
-        return;
+        return false;
       }
     } else {
       if (!editorSourceContent) {
         notify.error('No hay contenido base para el modo visual');
-        return;
+        return false;
       }
 
       parsedContent = buildVisualContent(editorSourceContent, editorVisualEntries);
@@ -1155,8 +1155,10 @@ export function ProjectDetailPage() {
 
       notify.success('Archivo guardado correctamente');
       await runAnalysis();
+      return true;
     } catch {
       notify.error('No se pudo guardar el archivo');
+      return false;
     } finally {
       setEditorBusy(false);
     }
@@ -2482,6 +2484,7 @@ export function ProjectDetailPage() {
                 projectHasReference={Boolean(project?.referenceLanguageId)}
                 languageNameById={languageNameById}
                 fileGroupNameByReportId={reportGroupNameByReportId}
+                isPro={isPro}
                 onRunAnalysis={runAnalysis}
                 onLoadLatestAnalysis={() => void loadLatestAnalysis(false)}
                 onExportIssuesCsv={exportIssuesCsv}
@@ -2494,6 +2497,7 @@ export function ProjectDetailPage() {
                   }
                   notify.info('Abre un archivo en el editor para lanzar las sugerencias IA');
                 }}
+                onViewQualityAnalysis={() => setActiveSection('quality-review')}
                 onIssueTypeFilterChange={setIssueTypeFilter}
                 onIssueLanguageFilterChange={setIssueLanguageFilter}
                 onClearIssueFilters={() => {

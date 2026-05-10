@@ -15,6 +15,7 @@ import { notify } from '../../lib/toast';
 import type { AnalysisIssue, AnalysisReport, IssueType, Language } from '../../lib/types';
 import { Button } from '../ui/button';
 import { Select } from '../ui/select';
+import { AnalysisClearScreen } from './AnalysisClearScreen';
 
 type IssueTypeStats = {
   MISSING_KEY: number;
@@ -35,10 +36,12 @@ type AnalysisSectionProps = {
   projectHasReference: boolean;
   languageNameById: Map<string, Language>;
   fileGroupNameByReportId: Record<string, string>;
+  isPro: boolean;
   onRunAnalysis: () => void | Promise<void>;
   onLoadLatestAnalysis?: () => void | Promise<void>;
   onExportIssuesCsv: () => void;
   onRequestAiSuggestions?: () => void | Promise<void>;
+  onViewQualityAnalysis?: () => void;
   onIssueTypeFilterChange: (value: 'ALL' | IssueType) => void;
   onIssueLanguageFilterChange: (value: 'ALL' | string) => void;
   onClearIssueFilters: () => void;
@@ -60,10 +63,12 @@ export function AnalysisSection({
   projectHasReference,
   languageNameById,
   fileGroupNameByReportId,
+  isPro,
   onRunAnalysis,
   onLoadLatestAnalysis,
   onExportIssuesCsv,
   onRequestAiSuggestions,
+  onViewQualityAnalysis,
   onIssueTypeFilterChange,
   onIssueLanguageFilterChange,
   onClearIssueFilters,
@@ -170,62 +175,71 @@ export function AnalysisSection({
         <div className="mt-4">
           <h3 className="text-sm font-semibold text-zinc-900">Resultado del ultimo reporte</h3>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm text-zinc-600">Tipo de issue</label>
-              <Select
-                value={issueTypeFilter}
-                onChange={(event) => onIssueTypeFilterChange(event.target.value as 'ALL' | IssueType)}
-              >
-                <option value="ALL">Todos</option>
-                <option value="MISSING_KEY">Falta clave</option>
-                <option value="INCORRECT_NESTING">Anidado incorrecto</option>
-                <option value="UNUSED_KEY">Clave no usada</option>
-                <option value="INTERPOLATION_MISMATCH">Interpolacion distinta</option>
-              </Select>
-            </div>
+          {analysisReport.issues.length > 0 && (
+            <>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm text-zinc-600">Tipo de issue</label>
+                  <Select
+                    value={issueTypeFilter}
+                    onChange={(event) => onIssueTypeFilterChange(event.target.value as 'ALL' | IssueType)}
+                  >
+                    <option value="ALL">Todos</option>
+                    <option value="MISSING_KEY">Falta clave</option>
+                    <option value="INCORRECT_NESTING">Anidado incorrecto</option>
+                    <option value="UNUSED_KEY">Clave no usada</option>
+                    <option value="INTERPOLATION_MISMATCH">Interpolacion distinta</option>
+                  </Select>
+                </div>
 
-            <div>
-              <label className="mb-1 block text-sm text-zinc-600">Idioma</label>
-              <Select value={issueLanguageFilter} onChange={(event) => onIssueLanguageFilterChange(event.target.value)}>
-                <option value="ALL">Todos</option>
-                {languages.map((language) => (
-                  <option key={language.id} value={language.id}>
-                    {language.name} ({language.code})
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </div>
+                <div>
+                  <label className="mb-1 block text-sm text-zinc-600">Idioma</label>
+                  <Select
+                    value={issueLanguageFilter}
+                    onChange={(event) => onIssueLanguageFilterChange(event.target.value)}
+                  >
+                    <option value="ALL">Todos</option>
+                    {languages.map((language) => (
+                      <option key={language.id} value={language.id}>
+                        {language.name} ({language.code})
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
 
-          <div className="mt-4 border-t border-zinc-200 pt-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800">
-                Falta clave: {issueTypeStats.MISSING_KEY}
-              </span>
-              <span className="rounded-full border border-orange-300 bg-orange-50 px-2 py-1 text-xs text-orange-800">
-                Anidado: {issueTypeStats.INCORRECT_NESTING}
-              </span>
-              <span className="rounded-full border border-blue-300 bg-blue-50 px-2 py-1 text-xs text-blue-800">
-                No usada: {issueTypeStats.UNUSED_KEY}
-              </span>
-              <span className="rounded-full border border-rose-300 bg-rose-50 px-2 py-1 text-xs text-rose-800">
-                Interpolacion: {issueTypeStats.INTERPOLATION_MISMATCH}
-              </span>
-              <Button type="button" variant="outline" size="sm" onClick={onClearIssueFilters}>
-                Limpiar filtros
-              </Button>
-            </div>
-          </div>
+              <div className="mt-4 border-t border-zinc-200 pt-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800">
+                    Falta clave: {issueTypeStats.MISSING_KEY}
+                  </span>
+                  <span className="rounded-full border border-orange-300 bg-orange-50 px-2 py-1 text-xs text-orange-800">
+                    Anidado: {issueTypeStats.INCORRECT_NESTING}
+                  </span>
+                  <span className="rounded-full border border-blue-300 bg-blue-50 px-2 py-1 text-xs text-blue-800">
+                    No usada: {issueTypeStats.UNUSED_KEY}
+                  </span>
+                  <span className="rounded-full border border-rose-300 bg-rose-50 px-2 py-1 text-xs text-rose-800">
+                    Interpolacion: {issueTypeStats.INTERPOLATION_MISMATCH}
+                  </span>
+                  <Button type="button" variant="outline" size="sm" onClick={onClearIssueFilters}>
+                    Limpiar filtros
+                  </Button>
+                </div>
+              </div>
 
-          {analysisReport.issues.length > 0 ? (
-            <p className="mt-3 text-sm text-zinc-600">
-              Mostrando {sortedFilteredIssues.length} de {analysisReport.issues.length} issue(s)
-            </p>
-          ) : null}
+              <p className="mt-3 text-sm text-zinc-600">
+                Mostrando {sortedFilteredIssues.length} de {analysisReport.issues.length} issue(s)
+              </p>
+            </>
+          )}
 
           {sortedFilteredIssues.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-500">No se encontraron issues.</p>
+            analysisReport.issues.length === 0 ? (
+              <AnalysisClearScreen isPro={isPro} onViewQualityAnalysis={onViewQualityAnalysis} />
+            ) : (
+              <p className="mt-3 text-sm text-zinc-500">No se encontraron issues que coincidan con los filtros.</p>
+            )
           ) : (
             <div className="mt-3 space-y-3">
               <div className="flex flex-wrap items-center gap-2">
