@@ -60,6 +60,7 @@ export type Project = {
   i18nPattern: I18nPattern;
   ownerId: string;
   referenceLanguageId?: string | null;
+  versionHistoryLimit: number;
   createdAt: string;
 };
 

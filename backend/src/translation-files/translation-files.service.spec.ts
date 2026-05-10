@@ -24,6 +24,7 @@ describe('TranslationFilesService', () => {
       findFirst: jest.fn(),
       create: jest.fn(),
       findMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
     $transaction: jest.fn(),
   } as unknown as PrismaService;
@@ -40,6 +41,7 @@ describe('TranslationFilesService', () => {
       findFirst: jest.fn(),
       create: jest.fn(),
       findMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
   };
 
@@ -50,6 +52,7 @@ describe('TranslationFilesService', () => {
 
     prismaMock.project.findUnique = jest.fn().mockResolvedValue({
       id: 'project-1',
+      versionHistoryLimit: 10,
     });
     prismaMock.language.findFirst = jest.fn().mockResolvedValue({
       id: 'lang-fr',
@@ -119,6 +122,8 @@ describe('TranslationFilesService', () => {
     });
     txMock.translationFileVersion.findFirst.mockResolvedValue(null);
     txMock.translationFileVersion.create.mockResolvedValue({});
+    txMock.translationFileVersion.findMany.mockResolvedValue([]);
+    txMock.translationFileVersion.deleteMany.mockResolvedValue({ count: 0 });
 
     prismaMock.$transaction = jest
       .fn()
@@ -393,6 +398,7 @@ describe('TranslationFilesService', () => {
       owner: {
         tier: Tier.PRO,
       },
+      versionHistoryLimit: 10,
     });
     txMock.translationFileVersion.findFirst.mockResolvedValue({
       versionNumber: 3,
@@ -437,6 +443,7 @@ describe('TranslationFilesService', () => {
       owner: {
         tier: Tier.FREE,
       },
+      versionHistoryLimit: 10,
     });
 
     await service.updateContent(
@@ -470,6 +477,7 @@ describe('TranslationFilesService', () => {
       owner: {
         tier: Tier.PRO,
       },
+      versionHistoryLimit: 10,
     });
     txMock.translationFileVersion.findFirst.mockResolvedValue({
       versionNumber: 2,
@@ -501,6 +509,61 @@ describe('TranslationFilesService', () => {
       }),
     );
     expect(txMock.translationFile.update).toHaveBeenCalled();
+  });
+
+  it('updateContent prunes old versions according to project limit', async () => {
+    prismaMock.translationFile.findFirst = jest.fn().mockResolvedValue({
+      id: 'tf-1',
+      content: {
+        title: 'Anterior',
+      },
+    });
+    prismaMock.project.findUnique = jest.fn().mockResolvedValue({
+      owner: {
+        tier: Tier.PRO,
+      },
+      versionHistoryLimit: 2,
+    });
+    txMock.translationFileVersion.findFirst.mockResolvedValue({
+      versionNumber: 5,
+    });
+    txMock.translationFileVersion.findMany.mockImplementation(
+      async (args?: { skip?: number }) => {
+        const versions = [
+          { id: 'version-5', versionNumber: 5 },
+          { id: 'version-4', versionNumber: 4 },
+          { id: 'version-3', versionNumber: 3 },
+          { id: 'version-2', versionNumber: 2 },
+          { id: 'version-1', versionNumber: 1 },
+        ];
+
+        return versions.slice(args?.skip ?? 0);
+      },
+    );
+
+    await service.updateContent(
+      'project-1',
+      'tf-1',
+      {
+        content: {
+          title: 'Nuevo',
+        },
+      },
+      {
+        sub: 'user-pro',
+        email: 'pro@test.com',
+        role: GlobalRole.MEMBER,
+        tier: Tier.PRO,
+      },
+    );
+
+    expect(txMock.translationFileVersion.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: {
+          in: ['version-3', 'version-2', 'version-1'],
+        },
+      },
+    });
   });
 
   it('listVersions returns versions for PRO users', async () => {

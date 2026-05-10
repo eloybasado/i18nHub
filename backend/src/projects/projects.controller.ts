@@ -19,8 +19,9 @@ import { ProjectRoleGuard } from '../common/guards/project-role.guard';
 import { AddProjectMemberDto } from './dto/add-project-member.dto';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { TransferProjectOwnershipDto } from './dto/transfer-project-ownership.dto';
-import { UpdateProjectDto } from './dto/update-project.dto';
 import { UpdateProjectMemberRoleDto } from './dto/update-project-member-role.dto';
+import { UpdateProjectVersionHistoryLimitDto } from './dto/update-project-version-history-limit.dto';
+import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectsService } from './projects.service';
 
 @Controller('projects')
@@ -55,6 +56,16 @@ export class ProjectsController {
     @Body() dto: UpdateProjectDto,
   ) {
     return this.projectsService.update(id, dto);
+  }
+
+  @Patch(':id/version-history-limit')
+  @UseGuards(ProjectRoleGuard)
+  @ProjectRoles(ProjectRole.OWNER)
+  updateVersionHistoryLimit(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateProjectVersionHistoryLimitDto,
+  ) {
+    return this.projectsService.updateVersionHistoryLimit(id, dto);
   }
 
   @Post(':id/members')
@@ -98,7 +109,10 @@ export class ProjectsController {
   @Post(':id/members/leave')
   @UseGuards(ProjectRoleGuard)
   @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR, ProjectRole.VIEWER)
-  leaveProject(@Req() req: Request, @Param('id', new ParseUUIDPipe()) id: string) {
+  leaveProject(
+    @Req() req: Request,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
     const user = req.user as JwtPayload;
     return this.projectsService.leaveProject(id, user.sub);
   }

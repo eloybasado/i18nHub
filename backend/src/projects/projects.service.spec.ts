@@ -36,6 +36,13 @@ describe('ProjectsService', () => {
     projectMember: {
       upsert: jest.fn(),
     },
+    translationFile: {
+      findMany: jest.fn(),
+    },
+    translationFileVersion: {
+      findMany: jest.fn(),
+      deleteMany: jest.fn(),
+    },
   };
 
   const service = new ProjectsService(prismaMock);
@@ -77,6 +84,9 @@ describe('ProjectsService', () => {
       ownerId: 'member-2',
     });
     txMock.projectMember.upsert.mockResolvedValue({});
+    txMock.translationFile.findMany.mockResolvedValue([]);
+    txMock.translationFileVersion.findMany.mockResolvedValue([]);
+    txMock.translationFileVersion.deleteMany.mockResolvedValue({ count: 0 });
 
     prismaMock.$transaction = jest
       .fn()
@@ -217,9 +227,9 @@ describe('ProjectsService', () => {
   });
 
   it('throws when trying to remove current owner', async () => {
-    await expect(service.removeMember('project-1', 'owner-1')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.removeMember('project-1', 'owner-1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('allows non-owner member to leave project', async () => {
@@ -235,9 +245,9 @@ describe('ProjectsService', () => {
   });
 
   it('throws when owner tries to leave project', async () => {
-    await expect(service.leaveProject('project-1', 'owner-1')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.leaveProject('project-1', 'owner-1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('throws when transfer ownership is requested by non-owner', async () => {
@@ -253,9 +263,13 @@ describe('ProjectsService', () => {
       id: 'membership-member-2',
     });
 
-    const updatedProject = await service.transferOwnership('project-1', 'owner-1', {
-      newOwnerUserId: 'member-2',
-    });
+    const updatedProject = await service.transferOwnership(
+      'project-1',
+      'owner-1',
+      {
+        newOwnerUserId: 'member-2',
+      },
+    );
 
     expect(txMock.project.update).toHaveBeenCalledWith({
       where: {
@@ -296,6 +310,38 @@ describe('ProjectsService', () => {
       }),
     );
 
+    expect(updatedProject).toEqual({
+      id: 'project-1',
+      ownerId: 'member-2',
+    });
+  });
+
+  it('updates version history limit and prunes old versions', async () => {
+    txMock.translationFile.findMany.mockResolvedValue([
+      {
+        id: 'file-1',
+      },
+      {
+        id: 'file-2',
+      },
+    ]);
+
+    const updatedProject = await service.updateVersionHistoryLimit(
+      'project-1',
+      {
+        versionHistoryLimit: 4,
+      },
+    );
+
+    expect(txMock.project.update).toHaveBeenCalledWith({
+      where: {
+        id: 'project-1',
+      },
+      data: {
+        versionHistoryLimit: 4,
+      },
+    });
+    expect(txMock.translationFileVersion.deleteMany).not.toHaveBeenCalled();
     expect(updatedProject).toEqual({
       id: 'project-1',
       ownerId: 'member-2',

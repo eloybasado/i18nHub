@@ -68,6 +68,8 @@ describe('AnalysisService', () => {
         },
         analysisReport: {
           create: analysisReportCreate,
+          findMany: jest.fn().mockResolvedValue([]),
+          deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         },
         analysisIssue: {
           createMany: analysisIssueCreateMany,
@@ -124,6 +126,8 @@ describe('AnalysisService', () => {
         },
         analysisReport: {
           create: jest.fn().mockResolvedValue({ id: 'report-1' }),
+          findMany: jest.fn().mockResolvedValue([]),
+          deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         },
         analysisIssue: {
           createMany: analysisIssueCreateMany,
@@ -184,6 +188,8 @@ describe('AnalysisService', () => {
         },
         analysisReport: {
           create: jest.fn().mockResolvedValue({ id: 'report-1' }),
+          findMany: jest.fn().mockResolvedValue([]),
+          deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         },
         analysisIssue: {
           createMany: analysisIssueCreateMany,
@@ -260,6 +266,8 @@ describe('AnalysisService', () => {
         },
         analysisReport: {
           create: jest.fn().mockResolvedValue({ id: 'report-1' }),
+          findMany: jest.fn().mockResolvedValue([]),
+          deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         },
         analysisIssue: {
           createMany: analysisIssueCreateMany,
@@ -298,6 +306,8 @@ describe('AnalysisService', () => {
               languageId: 'lang-es',
               content: {
                 home: {
+                  findMany: jest.fn().mockResolvedValue([]),
+                  deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
                   title: 'Hola',
                 },
               },
@@ -424,6 +434,8 @@ describe('AnalysisService', () => {
         },
         analysisReport: {
           create: analysisReportCreate,
+          findMany: jest.fn().mockResolvedValue([]),
+          deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         },
         analysisIssue: {
           createMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -443,6 +455,78 @@ describe('AnalysisService', () => {
     expect(firstCreatedAt).toBeInstanceOf(Date);
     expect(secondCreatedAt).toBeInstanceOf(Date);
     expect(firstCreatedAt.toISOString()).toBe(secondCreatedAt.toISOString());
+  });
+
+  it('keeps only the latest two analysis runs per project', async () => {
+    prismaMock.project.findUnique = jest.fn().mockResolvedValue({
+      id: 'project-1',
+      referenceLanguageId: 'lang-en',
+      languages: [
+        { id: 'lang-en', code: 'en' },
+        { id: 'lang-es', code: 'es' },
+      ],
+      fileGroups: [{ id: 'group-1', name: 'home' }],
+    });
+
+    const analysisReportCreate = jest
+      .fn()
+      .mockResolvedValue({ id: 'report-4' });
+    const analysisReportFindMany = jest
+      .fn()
+      .mockResolvedValue([
+        { createdAt: new Date('2026-05-09T12:00:00.000Z') },
+        { createdAt: new Date('2026-05-08T12:00:00.000Z') },
+        { createdAt: new Date('2026-05-07T12:00:00.000Z') },
+      ]);
+    const analysisReportDeleteMany = jest.fn().mockResolvedValue({ count: 2 });
+
+    prismaMock.$transaction = jest.fn().mockImplementation(async (callback) =>
+      callback({
+        translationFile: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              languageId: 'lang-en',
+              content: {
+                key: 'Hello',
+              },
+            },
+            {
+              languageId: 'lang-es',
+              content: {
+                key: 'Hola',
+              },
+            },
+          ]),
+        },
+        analysisReport: {
+          create: analysisReportCreate,
+          findMany: analysisReportFindMany,
+          deleteMany: analysisReportDeleteMany,
+        },
+        analysisIssue: {
+          createMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+      }),
+    );
+
+    await service.run('project-1', {});
+
+    expect(analysisReportFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { projectId: 'project-1' },
+        distinct: ['createdAt'],
+        orderBy: { createdAt: 'desc' },
+      }),
+    );
+
+    expect(analysisReportDeleteMany).toHaveBeenCalledWith({
+      where: {
+        projectId: 'project-1',
+        createdAt: {
+          lt: new Date('2026-05-08T12:00:00.000Z'),
+        },
+      },
+    });
   });
 
   it('computes per-language coverage with untranslated and interpolation mismatches', async () => {

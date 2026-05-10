@@ -128,6 +128,31 @@ export class AnalysisService {
         });
       }
 
+      const recentRuns = await tx.analysisReport.findMany({
+        where: {
+          projectId,
+        },
+        distinct: ['createdAt'],
+        select: {
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      const retentionCutoff = recentRuns[1]?.createdAt;
+      if (retentionCutoff) {
+        await tx.analysisReport.deleteMany({
+          where: {
+            projectId,
+            createdAt: {
+              lt: retentionCutoff,
+            },
+          },
+        });
+      }
+
       return createdReports;
     });
 

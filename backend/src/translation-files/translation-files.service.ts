@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { I18nPattern, Prisma, Tier } from '@prisma/client';
 import { JwtPayload } from '../auth/types';
+import { pruneTranslationFileVersions } from '../common/version-retention';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloneTranslationFileDto } from './dto/clone-translation-file.dto';
 import { IngestTranslationFilesDto } from './dto/ingest-translation-files.dto';
@@ -455,6 +456,7 @@ export class TranslationFilesService {
         owner: {
           select: { tier: true },
         },
+        versionHistoryLimit: true,
       },
     });
 
@@ -481,6 +483,12 @@ export class TranslationFilesService {
             comment: 'Auto snapshot before content update',
           },
         });
+
+        await pruneTranslationFileVersions(
+          tx,
+          translationFileId,
+          project.versionHistoryLimit,
+        );
 
         return tx.translationFile.update({
           where: { id: translationFileId },

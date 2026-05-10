@@ -279,6 +279,8 @@ export function ProjectDetailPage() {
   const [memberToTransfer, setMemberToTransfer] = useState<ProjectMember | null>(null);
   const [ingestFiles, setIngestFiles] = useState<IngestFileItem[]>([]);
   const [analysisReport, setAnalysisReport] = useState<AnalysisReport | null>(null);
+  const [versionHistoryLimitDraft, setVersionHistoryLimitDraft] = useState('10');
+  const [versionHistoryLimitSaving, setVersionHistoryLimitSaving] = useState(false);
 
   const [issueTypeFilter, setIssueTypeFilter] = useState<'ALL' | IssueType>('ALL');
   const [issueLanguageFilter, setIssueLanguageFilter] = useState<'ALL' | string>('ALL');
@@ -375,8 +377,14 @@ export function ProjectDetailPage() {
 
   const currentUserId = getCurrentUserId();
   const isPro = getCurrentUserTier() === 'PRO';
+  const projectVersionHistoryLimit = project?.versionHistoryLimit ?? 10;
   const canManageTeam = Boolean(project && currentUserId && project.ownerId === currentUserId);
+  const canEditVersionHistoryLimit = canManageTeam;
   const canLeaveProject = Boolean(project && currentUserId && project.ownerId !== currentUserId);
+
+  useEffect(() => {
+    setVersionHistoryLimitDraft(String(projectVersionHistoryLimit));
+  }, [projectVersionHistoryLimit]);
 
   const parseFilesForIngest = async (files: File[]) => {
     try {
@@ -565,6 +573,7 @@ export function ProjectDetailPage() {
       const savedSignature = toAiContextSignature(aiContextSettings.context, glossaryEntries);
 
       setProject(projectData);
+      setVersionHistoryLimitDraft(String(projectData.versionHistoryLimit ?? 10));
       setTeamMembers(membersData);
       setLanguages(languagesData);
       setLanguageCoverageByLanguageId(
@@ -1088,6 +1097,22 @@ export function ProjectDetailPage() {
     return null;
   };
 
+  const refreshEditorVersions = async (translationFileId: string) => {
+    if (!isPro || !projectId) {
+      return;
+    }
+
+    try {
+      const versions = await apiRequest<TranslationFileVersionSummary[]>(
+        `/projects/${projectId}/translation-files/${translationFileId}/versions`,
+        { auth: true },
+      );
+      setEditorVersions(versions);
+    } catch {
+      setEditorVersions([]);
+    }
+  };
+
   const saveEditorFile = async () => {
     if (!projectId || !editorFileId) return;
 
@@ -1126,24 +1151,54 @@ export function ProjectDetailPage() {
       setEditorJson(JSON.stringify(updated.content, null, 2));
       setEditorBaselineJson(JSON.stringify(updated.content, null, 2));
 
-      if (isPro) {
-        try {
-          const versions = await apiRequest<TranslationFileVersionSummary[]>(
-            `/projects/${projectId}/translation-files/${editorFileId}/versions`,
-            { auth: true },
-          );
-          setEditorVersions(versions);
-        } catch {
-          setEditorVersions([]);
-        }
-      }
+      await refreshEditorVersions(editorFileId);
 
       notify.success('Archivo guardado correctamente');
-      await load();
+      await runAnalysis();
     } catch {
       notify.error('No se pudo guardar el archivo');
     } finally {
       setEditorBusy(false);
+    }
+  };
+
+  const saveVersionHistoryLimit = async () => {
+    if (!projectId || !project || !canEditVersionHistoryLimit) {
+      return;
+    }
+
+    const parsedLimit = Number.parseInt(versionHistoryLimitDraft, 10);
+    if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 10) {
+      notify.error('El límite debe estar entre 1 y 10');
+      return;
+    }
+
+    if (parsedLimit === projectVersionHistoryLimit) {
+      return;
+    }
+
+    setVersionHistoryLimitSaving(true);
+    try {
+      const updatedProject = await apiRequest<Project>(`/projects/${projectId}/version-history-limit`, {
+        method: 'PATCH',
+        auth: true,
+        body: {
+          versionHistoryLimit: parsedLimit,
+        },
+      });
+
+      setProject(updatedProject);
+      setVersionHistoryLimitDraft(String(updatedProject.versionHistoryLimit));
+
+      if (editorFileId) {
+        await refreshEditorVersions(editorFileId);
+      }
+
+      notify.success('Ajuste guardado correctamente');
+    } catch {
+      notify.error('No se pudo guardar el ajuste');
+    } finally {
+      setVersionHistoryLimitSaving(false);
     }
   };
 
@@ -2020,6 +2075,8 @@ export function ProjectDetailPage() {
       setHighlightedIssuePath(expectedPath);
       setEditorVisualQuery(expectedPath);
 
+      await runAnalysis();
+
       notify.success('Clave reubicada en su ruta correcta y marcada como resuelta');
     } catch {
       notify.error('No se pudo corregir el issue de anidado');
@@ -2229,7 +2286,12 @@ export function ProjectDetailPage() {
                     : 'Sin definir'
                 }
                 issueTypeStats={issueTypeStats}
-                onGoToSection={setActiveSection}
+                versionHistoryLimit={projectVersionHistoryLimit}
+                versionHistoryLimitDraft={versionHistoryLimitDraft}
+                versionHistoryLimitSaving={versionHistoryLimitSaving}
+                canEditVersionHistoryLimit={canEditVersionHistoryLimit}
+                onVersionHistoryLimitDraftChange={setVersionHistoryLimitDraft}
+                onSaveVersionHistoryLimit={saveVersionHistoryLimit}
               />
             </div>
 

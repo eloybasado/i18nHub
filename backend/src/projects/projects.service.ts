@@ -5,12 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Project, ProjectRole } from '@prisma/client';
+import { pruneProjectTranslationFileVersions } from '../common/version-retention';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddProjectMemberDto } from './dto/add-project-member.dto';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { TransferProjectOwnershipDto } from './dto/transfer-project-ownership.dto';
-import { UpdateProjectDto } from './dto/update-project.dto';
 import { UpdateProjectMemberRoleDto } from './dto/update-project-member-role.dto';
+import { UpdateProjectVersionHistoryLimitDto } from './dto/update-project-version-history-limit.dto';
+import { UpdateProjectDto } from './dto/update-project.dto';
 
 type ProjectMemberItem = {
   userId: string;
@@ -84,6 +86,30 @@ export class ProjectsService {
     });
   }
 
+  async updateVersionHistoryLimit(
+    id: string,
+    dto: UpdateProjectVersionHistoryLimitDto,
+  ): Promise<Project> {
+    await this.getById(id);
+
+    return this.prisma.$transaction(async (tx) => {
+      const updatedProject = await tx.project.update({
+        where: { id },
+        data: {
+          versionHistoryLimit: dto.versionHistoryLimit,
+        },
+      });
+
+      await pruneProjectTranslationFileVersions(
+        tx,
+        id,
+        dto.versionHistoryLimit,
+      );
+
+      return updatedProject;
+    });
+  }
+
   async addMember(projectId: string, dto: AddProjectMemberDto) {
     const project = await this.getProjectIdentity(projectId);
 
@@ -103,7 +129,9 @@ export class ProjectsService {
     }
 
     if (user.id === project.ownerId) {
-      throw new BadRequestException('Project owner is already part of the team');
+      throw new BadRequestException(
+        'Project owner is already part of the team',
+      );
     }
 
     return this.prisma.projectMember.upsert({
@@ -161,7 +189,8 @@ export class ProjectsService {
     });
 
     members.sort((left, right) => {
-      const roleOrder = PROJECT_ROLE_ORDER[left.role] - PROJECT_ROLE_ORDER[right.role];
+      const roleOrder =
+        PROJECT_ROLE_ORDER[left.role] - PROJECT_ROLE_ORDER[right.role];
       if (roleOrder !== 0) {
         return roleOrder;
       }
@@ -180,11 +209,15 @@ export class ProjectsService {
     const project = await this.getProjectIdentity(projectId);
 
     if (dto.role === ProjectRole.OWNER) {
-      throw new BadRequestException('OWNER role cannot be assigned in this endpoint');
+      throw new BadRequestException(
+        'OWNER role cannot be assigned in this endpoint',
+      );
     }
 
     if (userId === project.ownerId) {
-      throw new BadRequestException('Use ownership transfer endpoint to change owner role');
+      throw new BadRequestException(
+        'Use ownership transfer endpoint to change owner role',
+      );
     }
 
     const membership = await this.prisma.projectMember.findUnique({
@@ -241,7 +274,9 @@ export class ProjectsService {
     const project = await this.getProjectIdentity(projectId);
 
     if (userId === project.ownerId) {
-      throw new BadRequestException('Project owner must transfer ownership before leaving');
+      throw new BadRequestException(
+        'Project owner must transfer ownership before leaving',
+      );
     }
 
     const deletion = await this.prisma.projectMember.deleteMany({
@@ -286,7 +321,9 @@ export class ProjectsService {
     });
 
     if (!targetMembership) {
-      throw new NotFoundException('New owner must be an existing project member');
+      throw new NotFoundException(
+        'New owner must be an existing project member',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
