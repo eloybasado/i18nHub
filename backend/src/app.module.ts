@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module';
 import { AiModule } from './ai/ai.module';
+import { DeliveryModule } from './delivery/delivery.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -24,6 +25,7 @@ import { TranslationFilesModule } from './translation-files/translation-files.mo
     ]),
     PrismaModule,
     AdminModule,
+    DeliveryModule,
     AuthModule,
     AiModule,
     AnalysisModule,

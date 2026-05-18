@@ -75,6 +75,7 @@ model Project {
   languages          Language[]      @relation("ProjectLanguages")
   fileGroups         FileGroup[]
   analysisReports    AnalysisReport[]
+  deliveryApiKeys    DeliveryApiKey[]
 
   @@map("projects")
 }
@@ -151,6 +152,20 @@ model TranslationFileVersion {
 
   @@unique([translationFileId, versionNumber])
   @@map("translation_file_versions")
+}
+
+model DeliveryApiKey {
+  id         String    @id @default(uuid())
+  projectId  String    @map("project_id")
+  name       String
+  keyHash    String    @unique @map("key_hash")
+  keyPrefix  String    @map("key_prefix")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastUsedAt DateTime? @map("last_used_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("delivery_api_keys")
 }
 
 model AnalysisReport {

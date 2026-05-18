@@ -1,6 +1,5 @@
 import JSZip from 'jszip';
 import {
-  ArrowLeft,
   Bot,
   CheckSquare,
   FilePenLine,
@@ -1702,10 +1701,7 @@ export function ProjectDetailPage() {
     await navigateToIssue(issue, targetFile);
   };
 
-  const navigateToIssue = async (
-    issue: AnalysisReport['issues'][number],
-    targetFile: TranslationFileSummary,
-  ) => {
+  const navigateToIssue = async (issue: AnalysisReport['issues'][number], targetFile: TranslationFileSummary) => {
     setActiveIssueId(issue.id);
 
     // Keep editor in VISUAL during issue navigation to avoid mode flicker.
@@ -2226,12 +2222,6 @@ export function ProjectDetailPage() {
       <PageHeader
         title={project ? project.name : 'Proyecto'}
         subtitle="Gestión de idiomas y carga inicial de traducciones"
-        action={
-          <Button type="button" variant="outline" size="sm" onClick={() => navigate('/projects')}>
-            <ArrowLeft size={14} className="mr-1" />
-            Volver a proyectos
-          </Button>
-        }
       />
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-24 md:px-6 lg:pb-6">
@@ -2538,7 +2528,7 @@ export function ProjectDetailPage() {
             </div>
 
             <div className={`${activeSection === 'integrations' ? 'block' : 'hidden'} mt-2`}>
-              <IntegrationsSection />
+              <IntegrationsSection projectId={projectId ?? ''} />
             </div>
           </section>
         </div>

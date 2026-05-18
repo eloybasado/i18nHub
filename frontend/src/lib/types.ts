@@ -228,3 +228,16 @@ export type QualityReviewResult = {
 export type QualityReviewResponse = {
   results: QualityReviewResult[];
 };
+
+export type DeliveryApiKey = {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+};
+
+export type CreateDeliveryKeyResponse = {
+  key: string;
+  record: DeliveryApiKey;
+};

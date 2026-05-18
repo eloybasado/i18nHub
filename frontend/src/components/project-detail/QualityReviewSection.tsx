@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { apiRequest } from '../../lib/api';
 import { notify } from '../../lib/toast';
 import type { Language, QualityReviewResponse, QualityReviewResult, TranslationFileSummary } from '../../lib/types';
-import { LoadingLottieOverlay } from '../common/LoadingLottieOverlay';
+import { AiLoadingOverlay } from '../common/AiLoadingOverlay';
 import { Button } from '../ui/button';
 import { Select } from '../ui/select';
 
@@ -231,7 +231,7 @@ export function QualityReviewSection({
 
   return (
     <div>
-      <LoadingLottieOverlay visible={loading} src="/animations/loading-cat.lottie" />
+      <AiLoadingOverlay visible={loading} />
       <div className="mb-6 flex items-center gap-2">
         <h2 className="text-lg font-semibold text-zinc-900">Revision de Calidad</h2>
         <span className="rounded-full border border-purple-300 bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-700">
