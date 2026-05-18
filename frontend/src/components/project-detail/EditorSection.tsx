@@ -356,6 +356,7 @@ export function EditorSection({
                 onSelectFile={requestEditorFileChange}
                 onClearSelection={onResetEditorSelection}
                 disabled={editorBusy}
+                hasUnsavedChanges={editorHasChanges}
               />
             </div>
           </div>
@@ -725,7 +726,9 @@ export function EditorSection({
                     key={entry.path}
                     id={`visual-entry-${entry.path}`}
                     className={`flex items-start gap-2 rounded-md border-b border-zinc-200 pb-4 ${
-                      highlightedVisualPath === entry.path ? 'border-l-4 border-l-amber-400 bg-amber-50/70 px-2' : ''
+                      highlightedVisualPath === entry.path && editorMode !== 'VISUAL'
+                        ? 'border-l-4 border-l-amber-400 bg-amber-50/70 px-2'
+                        : ''
                     }`}
                   >
                     <label className="flex-1">

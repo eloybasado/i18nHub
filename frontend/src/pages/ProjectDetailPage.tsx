@@ -331,6 +331,8 @@ export function ProjectDetailPage() {
   const [languageMappingModalOpen, setLanguageMappingModalOpen] = useState(false);
   const [languageMapping, setLanguageMapping] = useState<Record<string, string | null>>({});
   const [proModalOpen, setProModalOpen] = useState(false);
+  const [pendingIssue, setPendingIssue] = useState<AnalysisIssue | null>(null);
+  const [goToIssueModalOpen, setGoToIssueModalOpen] = useState(false);
   const hasConfiguredLanguages = languages.length > 0;
 
   const getCurrentUserId = (): string | null => {
@@ -1682,14 +1684,29 @@ export function ProjectDetailPage() {
   };
 
   const goToIssueInEditor = async (issue: AnalysisReport['issues'][number]) => {
-    setActiveIssueId(issue.id);
-
     const targetFile = findIssueTargetFile(issue);
 
     if (!targetFile) {
       notify.error('No se encontro archivo para este issue en el idioma seleccionado');
       return;
     }
+
+    // Si estamos en un archivo diferente y hay cambios, pedir confirmación
+    if (editorFileId && editorFileId !== targetFile.id && editorHasChanges) {
+      setPendingIssue(issue);
+      setGoToIssueModalOpen(true);
+      return;
+    }
+
+    // Proceder a navegar al issue
+    await navigateToIssue(issue, targetFile);
+  };
+
+  const navigateToIssue = async (
+    issue: AnalysisReport['issues'][number],
+    targetFile: TranslationFileSummary,
+  ) => {
+    setActiveIssueId(issue.id);
 
     // Keep editor in VISUAL during issue navigation to avoid mode flicker.
     setEditorMode('VISUAL');
@@ -2691,6 +2708,72 @@ export function ProjectDetailPage() {
                 disabled={Object.values(languageMapping).some((v) => !v)}
               >
                 Aplicar mapeo
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={goToIssueModalOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setGoToIssueModalOpen(false);
+              setPendingIssue(null);
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Tienes cambios sin guardar</DialogTitle>
+              <DialogDescription>
+                Si cambias de archivo para ver este issue, puedes guardar primero o seguir sin guardar y perder los
+                cambios actuales.
+              </DialogDescription>
+            </DialogHeader>
+
+            <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setGoToIssueModalOpen(false);
+                  setPendingIssue(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={async () => {
+                  const saved = await saveEditorFile();
+                  if (saved && pendingIssue) {
+                    const targetFile = findIssueTargetFile(pendingIssue);
+                    if (targetFile) {
+                      setGoToIssueModalOpen(false);
+                      setPendingIssue(null);
+                      await navigateToIssue(pendingIssue, targetFile);
+                    }
+                  }
+                }}
+                disabled={editorBusy}
+              >
+                Guardar y cambiar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (pendingIssue) {
+                    const targetFile = findIssueTargetFile(pendingIssue);
+                    if (targetFile) {
+                      setGoToIssueModalOpen(false);
+                      setPendingIssue(null);
+                      void navigateToIssue(pendingIssue, targetFile);
+                    }
+                  }
+                }}
+              >
+                Cambiar sin guardar
               </Button>
             </DialogFooter>
           </DialogContent>

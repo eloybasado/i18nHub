@@ -1,5 +1,5 @@
 import { FilePenLine, FolderTree } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { TranslationFileSummary } from '../../lib/types';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
@@ -20,6 +20,7 @@ type EditorFilePickerModalProps = {
   onSelectFile: (fileId: string) => void;
   onClearSelection: () => void;
   disabled?: boolean;
+  hasUnsavedChanges?: boolean;
 };
 
 const sortBuckets = (buckets: GroupedBucket[]) => {
@@ -32,12 +33,19 @@ export function EditorFilePickerModal({
   onSelectFile,
   onClearSelection,
   disabled,
+  hasUnsavedChanges,
 }: EditorFilePickerModalProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [groupingMode, setGroupingMode] = useState<GroupingMode>('LANGUAGE');
 
   const selectedFile = translationFiles.find((file) => file.id === selectedFileId) ?? null;
+
+  useEffect(() => {
+    if (!hasUnsavedChanges && open) {
+      setOpen(false);
+    }
+  }, [hasUnsavedChanges, open]);
 
   const filteredFiles = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -143,7 +151,9 @@ export function EditorFilePickerModal({
                           }`}
                           onClick={() => {
                             onSelectFile(file.id);
-                            setOpen(false);
+                            if (!hasUnsavedChanges) {
+                              setOpen(false);
+                            }
                           }}
                         >
                           <p className="truncate font-medium">{file.filename}</p>
