@@ -712,6 +712,23 @@ export function EditorSection({
             </span>
           </div>
 
+            {treeReferenceEntries && treeReferenceEntries.length > 0 && (
+            <div className="mb-3 flex items-center justify-end">
+              <button
+                type="button"
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  showReferenceOverlay
+                    ? 'border-zinc-700 bg-zinc-900 text-white'
+                    : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50'
+                }`}
+                onClick={() => onShowReferenceOverlayChange(!showReferenceOverlay)}
+              >
+                {showReferenceOverlay ? <Eye size={12} /> : <EyeOff size={12} />}
+                Mostrar referencia
+              </button>
+            </div>
+          )}
+
           <div className="mt-4 max-h-[560px] overflow-auto pr-1">
             {!editorFileId ? (
               <p className="text-base text-zinc-500">Abre un archivo para empezar.</p>
@@ -721,48 +738,59 @@ export function EditorSection({
               </p>
             ) : (
               <div className="space-y-4">
-                {filteredVisualEntries.map((entry) => (
-                  <div
-                    key={entry.path}
-                    id={`visual-entry-${entry.path}`}
-                    className={`flex items-start gap-2 rounded-md border-b border-zinc-200 pb-4 ${
-                      highlightedVisualPath === entry.path && editorMode !== 'VISUAL'
-                        ? 'border-l-4 border-l-amber-400 bg-amber-50/70 px-2'
-                        : ''
-                    }`}
-                  >
-                    <label className="flex-1">
-                      <span className="inline-flex rounded bg-zinc-100 px-2 py-1 font-mono text-sm font-semibold text-zinc-800">
-                        {entry.path}
-                      </span>
-                      <textarea
-                        className="mt-2 min-h-[110px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base leading-relaxed text-zinc-900 outline-none focus:border-zinc-500"
-                        value={entry.value}
-                        onChange={(event) => onEditorVisualEntryChange(entry.path, event.target.value)}
-                        onFocus={() => {
-                          if (highlightedVisualPath === entry.path) {
-                            visualHighlightFocusedPathRef.current = entry.path;
-                          }
-                        }}
-                        onBlur={() => {
-                          if (visualHighlightFocusedPathRef.current === entry.path) {
-                            visualHighlightFocusedPathRef.current = null;
-                            onDismissHighlightedVisualPath();
-                          }
-                        }}
-                        disabled={!editorFileId}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="mt-1 shrink-0 rounded p-1.5 text-zinc-300 hover:bg-red-50 hover:text-red-500"
-                      onClick={() => setDeletingPath(entry.path)}
-                      title="Eliminar clave"
+                {filteredVisualEntries.map((entry) => {
+                  const refValue = showReferenceOverlay
+                    ? treeReferenceEntries?.find((r) => r.path === entry.path)?.value
+                    : undefined;
+                  return (
+                    <div
+                      key={entry.path}
+                      id={`visual-entry-${entry.path}`}
+                      className={`flex items-start gap-2 rounded-md border-b border-zinc-200 pb-4 ${
+                        highlightedVisualPath === entry.path && editorMode !== 'VISUAL'
+                          ? 'border-l-4 border-l-amber-400 bg-amber-50/70 px-2'
+                          : ''
+                      }`}
                     >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
+                      <label className="flex-1">
+                        <span className="inline-flex rounded bg-zinc-100 px-2 py-1 font-mono text-sm font-semibold text-zinc-800">
+                          {entry.path}
+                        </span>
+                        {refValue !== undefined && (
+                          <p className="mt-1.5 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2 text-sm leading-relaxed text-zinc-400 italic">
+                            <span className="not-italic font-medium text-zinc-300 mr-1.5">ref:</span>
+                            {refValue || <span className="text-zinc-300">—</span>}
+                          </p>
+                        )}
+                        <textarea
+                          className="mt-2 min-h-[110px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base leading-relaxed text-zinc-900 outline-none focus:border-zinc-500"
+                          value={entry.value}
+                          onChange={(event) => onEditorVisualEntryChange(entry.path, event.target.value)}
+                          onFocus={() => {
+                            if (highlightedVisualPath === entry.path) {
+                              visualHighlightFocusedPathRef.current = entry.path;
+                            }
+                          }}
+                          onBlur={() => {
+                            if (visualHighlightFocusedPathRef.current === entry.path) {
+                              visualHighlightFocusedPathRef.current = null;
+                              onDismissHighlightedVisualPath();
+                            }
+                          }}
+                          disabled={!editorFileId}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="mt-1 shrink-0 rounded p-1.5 text-zinc-300 hover:bg-red-50 hover:text-red-500"
+                        onClick={() => setDeletingPath(entry.path)}
+                        title="Eliminar clave"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
