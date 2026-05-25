@@ -14,6 +14,9 @@ importers:
       '@lottiefiles/dotlottie-react':
         specifier: ^0.18.7
         version: 0.18.10(react@19.2.6)
+      '@lottiefiles/dotlottie-web':
+        specifier: ^0.74.0
+        version: 0.74.0
       '@radix-ui/react-alert-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -272,6 +275,10 @@ packages:
 
   '@lottiefiles/dotlottie-web@0.70.0':
     resolution: {integrity: sha512-30IpEJ778MvR6/EglrBKZg1ZSXog86mbTBIZ6WrIHse3k1vIHqbIo9hyofMFQ8vF/JkLy4niih/zlsRC5kyrAg==}
+
+  '@lottiefiles/dotlottie-web@0.74.0':
+    resolution: {integrity: sha512-rG12+dJSVhQDdleGr9epR7zU/UJ6hh8jzBDHAurClHP5t5dSrOh3eP3UCFxolpVPcobaRVYsBnYg4HQokQewpg==}
+    engines: {node: '>=18.17.0', npm: '>=9.5.0'}
 
   '@napi-rs/wasm-runtime@1.1.4':
     resolution: {integrity: sha512-3NQNNgA1YSlJb/kMH1ildASP9HW7/7kYnRI2szWJaofaS1hWmbGI4H+d3+22aGzXXN9IJ+n+GiFVcGipJP18ow==}
@@ -1943,6 +1950,8 @@ snapshots:
       react: 19.2.6
 
   '@lottiefiles/dotlottie-web@0.70.0': {}
+
+  '@lottiefiles/dotlottie-web@0.74.0': {}
 
   '@napi-rs/wasm-runtime@1.1.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
     dependencies:
