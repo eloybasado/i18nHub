@@ -1,5 +1,6 @@
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
-import type { DotLottie } from '@lottiefiles/dotlottie-web';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DotLottie = any;
 import {
   ArrowRight,
   BookOpen,
