@@ -202,14 +202,14 @@ function ReferenceToggle({ active, onChange }: { active: boolean; onChange: (v: 
     <button
       type="button"
       onClick={() => onChange(!active)}
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all ${
+      title={active ? 'Ocultar referencia' : 'Ver referencia'}
+      className={`shrink-0 rounded-lg border p-1.5 transition-colors ${
         active
-          ? 'bg-violet-100 text-violet-700 ring-1 ring-violet-300'
-          : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700'
+          ? 'border-zinc-900 bg-zinc-900 text-white'
+          : 'border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700'
       }`}
     >
-      <Languages size={12} />
-      {active ? 'Referencia activa' : 'Ver referencia'}
+      <Languages size={14} />
     </button>
   );
 }
