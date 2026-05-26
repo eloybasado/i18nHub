@@ -11,14 +11,18 @@ import {
   Eye,
   FileCode,
   Github,
+  Globe,
+  Key,
   Languages,
   ListChecks,
   Milestone,
+  RefreshCw,
   RotateCcw,
   Sparkles,
   Target,
   Users,
   Workflow,
+  Zap,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { Link } from 'react-router-dom';
@@ -399,6 +403,84 @@ export function LandingPage() {
         </article>
       </section>
 
+      <section className="border-y border-zinc-100 bg-gradient-to-b from-white to-zinc-50/60">
+        <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
+          <div className="mb-8 max-w-2xl">
+            <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-zinc-400">Delivery</p>
+            <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">
+              Tus traducciones, siempre al día en producción
+            </h2>
+            <p className="mt-3 text-lg text-zinc-600 md:text-xl">
+              Corriges un texto, guardas y tu app lo muestra. Sin tocar código, sin abrir un PR, sin esperar un deploy.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <article className="rounded-2xl border border-zinc-200 bg-white p-6">
+              <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-100">
+                <RefreshCw size={20} className="text-zinc-700" />
+              </div>
+              <h3 className="text-lg font-bold text-zinc-900">Actualizaciones instantáneas</h3>
+              <p className="mt-2 text-sm text-zinc-600">
+                Cuando guardas un cambio en i18nHub, cualquier app que pida las traducciones las recibe ya actualizadas.
+                No hay caché que purgar ni pipeline que lanzar.
+              </p>
+            </article>
+
+            <article className="rounded-2xl border border-zinc-200 bg-white p-6">
+              <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-100">
+                <Globe size={20} className="text-zinc-700" />
+              </div>
+              <h3 className="text-lg font-bold text-zinc-900">Un idioma, una dirección</h3>
+              <p className="mt-2 text-sm text-zinc-600">
+                Cada idioma de tu proyecto tiene su propia URL. Tu app la consulta cuando la necesita y recibe las
+                traducciones listas para usar.
+              </p>
+            </article>
+
+            <article className="rounded-2xl border border-zinc-200 bg-white p-6">
+              <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-100">
+                <Key size={20} className="text-zinc-700" />
+              </div>
+              <h3 className="text-lg font-bold text-zinc-900">Acceso seguro por token</h3>
+              <p className="mt-2 text-sm text-zinc-600">
+                Cada proyecto tiene un token de solo lectura. Solo quien lo tenga puede recuperar las traducciones,
+                sin exponer el resto de tu cuenta.
+              </p>
+            </article>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-6 md:p-8">
+            <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_220px] md:items-center">
+              <div>
+                <h3 className="text-xl font-bold text-zinc-900">¿Cómo funciona en la práctica?</h3>
+                <p className="mt-2 text-zinc-600">
+                  Alguien del equipo corrige un texto en i18nHub y guarda. La próxima vez que un usuario abra la app
+                  ya ve el cambio, sin involucrar a desarrollo ni esperar al siguiente deploy.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2 text-sm">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-zinc-700">
+                    <Languages size={13} className="text-zinc-500" />
+                    Publica cuando quieras
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-zinc-700">
+                    <CheckCircle2 size={13} className="text-zinc-500" />
+                    Compatible con cualquier frontend
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-zinc-700">
+                    <Zap size={13} className="text-zinc-500" />
+                    Hot-fixes en instantes
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-center">
+                <DotLottieReact src="/animations/box-cat.lottie" autoplay loop className="h-56 w-56" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="border-y border-zinc-200 bg-zinc-50/70">
         <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
           <div className="mb-8 max-w-3xl">
@@ -527,7 +609,7 @@ export function LandingPage() {
             </div>
           </div>
 
-          <img src="/logo.svg" alt="i18nHub" className="logo-float-hover h-56 w-56 object-contain md:h-72 md:w-72" />
+          <img src="/logo-wide.svg" alt="i18nHub" className="logo-float-hover h-32 w-auto object-contain md:h-44" />
         </div>
       </section>
 

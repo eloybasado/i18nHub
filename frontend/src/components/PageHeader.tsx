@@ -54,7 +54,7 @@ export function PageHeader({ title, subtitle, action }: Props) {
             {subtitle ? ` - ${subtitle}` : ''}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 py-2.5">
-            <SiteBrand to="/projects" variant="bare" className="hidden sm:flex hover:opacity-90" />
+            <SiteBrand to="/projects" variant="bare" className="hidden sm:flex" />
 
             <nav className="hidden items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 sm:flex">
               <NavLink
