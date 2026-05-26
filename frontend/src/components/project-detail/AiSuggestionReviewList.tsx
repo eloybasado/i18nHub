@@ -58,10 +58,10 @@ export function AiSuggestionReviewList({
 
       <ul className="grid max-h-[24rem] gap-3 overflow-auto pr-1 sm:grid-cols-2">
         {aiSuggestions.map((item) => (
-          <li key={item.id}>
+          <li key={item.id} className="flex">
             <button
               type="button"
-              className={`w-full rounded-lg border bg-white p-3 shadow-sm transition-colors text-left hover:bg-zinc-50 ${
+              className={`flex w-full flex-col rounded-lg border bg-white p-3 shadow-sm transition-colors text-left hover:bg-zinc-50 ${
                 item.selected ? 'border-zinc-400' : 'border-zinc-200'
               }`}
               onClick={() => onToggleAiSuggestion(item.id)}
