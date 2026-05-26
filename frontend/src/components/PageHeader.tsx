@@ -1,23 +1,29 @@
 import { FolderKanban, LogOut, Menu, ShieldCheck, UserRound, X } from 'lucide-react';
-import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
 import { session } from '../lib/session';
 import type { AccountProfile } from '../lib/types';
 import { SiteBrand } from './common/SiteBrand';
 import { Button } from './ui/button';
 
-type Props = {
-  title: string;
-  subtitle?: string;
-  action?: ReactNode;
+const PAGE_TITLE: Record<string, string> = {
+  '/projects': 'Proyectos',
+  '/profile': 'Mi perfil',
+  '/admin': 'Administración',
 };
 
-export function PageHeader({ title, subtitle, action }: Props) {
+export function PageHeader() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const pageTitle = Object.entries(PAGE_TITLE).find(([path]) =>
+    location.pathname === path || location.pathname.startsWith(path + '/'),
+  )?.[1] ?? 'i18nHub';
   const [menuOpen, setMenuOpen] = useState(false);
   const [profile, setProfile] = useState<AccountProfile | null>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const [pill, setPill] = useState({ left: 0, width: 0 });
+  const [pillReady, setPillReady] = useState(false);
 
   const spacerClassName = menuOpen ? 'mb-5 h-56 sm:h-16' : 'mb-5 h-16';
 
@@ -43,27 +49,62 @@ export function PageHeader({ title, subtitle, action }: Props) {
 
   const isAdmin = profile?.role === 'ADMIN';
 
-  // no sliding indicator: keep nav simple and rely on smooth transitions
+  const pillInitialized = useRef(false);
+  const pendingPillPos = useRef<{ left: number; width: number } | null>(null);
+
+  const measurePill = (nav: HTMLElement | null) => {
+    if (!nav) return null;
+    const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!active) return null;
+    return { left: active.offsetLeft, width: active.offsetWidth };
+  };
+
+  // Before first paint: place pill instantly at the correct position (no animation)
+  // On navigation: store pending position without touching state, so the browser still
+  // paints the pill at the OLD position — giving the CSS transition something to slide from
+  useLayoutEffect(() => {
+    const pos = measurePill(navRef.current);
+    if (!pos) return;
+    if (!pillInitialized.current) {
+      pillInitialized.current = true;
+      setPill(pos);
+    } else {
+      pendingPillPos.current = pos;
+    }
+  }, [location.pathname, isAdmin]);
+
+  // After every paint: apply pending position (triggers the slide) and ensure transition is on
+  useEffect(() => {
+    if (pendingPillPos.current) {
+      setPill(pendingPillPos.current);
+      pendingPillPos.current = null;
+    }
+    if (!pillReady) setPillReady(true);
+  }, [location.pathname, isAdmin]);
 
   return (
     <>
       <header className="fixed inset-x-0 top-0 z-40 w-full border-b border-zinc-200/90 bg-white/90 shadow-[0_6px_18px_rgba(0,0,0,0.04)] backdrop-blur">
         <div className="mx-auto w-full max-w-7xl px-4 md:px-6">
-          <div className="sr-only" aria-live="polite">
-            {title}
-            {subtitle ? ` - ${subtitle}` : ''}
-          </div>
+          <div className="sr-only" aria-live="polite">{pageTitle}</div>
           <div className="flex flex-wrap items-center justify-between gap-2 py-2.5">
             <SiteBrand to="/projects" variant="bare" className="hidden sm:flex" />
 
-            <nav className="hidden items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 sm:flex">
+            <nav ref={navRef} className="relative hidden items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 sm:flex">
+              <div
+                aria-hidden
+                className={`pointer-events-none absolute top-1 bottom-1 rounded-md bg-zinc-900 ${
+                  pillReady ? 'transition-[left,width] duration-200 ease-out' : ''
+                }`}
+                style={{ left: pill.left, width: pill.width }}
+              />
               <NavLink
                 to="/projects"
                 className={({ isActive }) =>
-                  `inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm font-medium transition duration-200 ease-in-out transform ${
+                  `relative z-10 inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm font-medium ${
                     isActive
-                      ? 'bg-zinc-900 text-white shadow-sm scale-100'
-                      : 'text-zinc-600 hover:bg-white/70 hover:text-zinc-900 hover:-translate-y-0.5'
+                      ? 'text-white [transition:color_0ms_180ms]'
+                      : 'text-zinc-600 transition-colors duration-150 hover:text-zinc-900'
                   }`
                 }
               >
@@ -74,10 +115,10 @@ export function PageHeader({ title, subtitle, action }: Props) {
               <NavLink
                 to="/profile"
                 className={({ isActive }) =>
-                  `inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm font-medium transition duration-200 ease-in-out transform ${
+                  `relative z-10 inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm font-medium ${
                     isActive
-                      ? 'bg-zinc-900 text-white shadow-sm scale-100'
-                      : 'text-zinc-600 hover:bg-white/70 hover:text-zinc-900 hover:-translate-y-0.5'
+                      ? 'text-white [transition:color_0ms_180ms]'
+                      : 'text-zinc-600 transition-colors duration-150 hover:text-zinc-900'
                   }`
                 }
               >
@@ -89,10 +130,10 @@ export function PageHeader({ title, subtitle, action }: Props) {
                 <NavLink
                   to="/admin"
                   className={({ isActive }) =>
-                    `inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm font-medium transition duration-200 ease-in-out transform ${
+                    `relative z-10 inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm font-medium ${
                       isActive
-                        ? 'bg-zinc-900 text-white shadow-sm scale-100'
-                        : 'text-zinc-600 hover:bg-white/70 hover:text-zinc-900 hover:-translate-y-0.5'
+                        ? 'text-white [transition:color_0ms_180ms]'
+                        : 'text-zinc-600 transition-colors duration-150 hover:text-zinc-900'
                     }`
                   }
                 >
@@ -101,8 +142,6 @@ export function PageHeader({ title, subtitle, action }: Props) {
                 </NavLink>
               ) : null}
             </nav>
-
-            {action ? <div className="hidden sm:flex">{action}</div> : null}
 
             <Button
               type="button"

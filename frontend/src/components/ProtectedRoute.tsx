@@ -1,4 +1,5 @@
 import { Navigate, Outlet } from 'react-router-dom';
+import { PageHeader } from './PageHeader';
 import { session } from '../lib/session';
 
 export function ProtectedRoute() {
@@ -9,5 +10,10 @@ export function ProtectedRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  return <Outlet />;
+  return (
+    <>
+      <PageHeader />
+      <Outlet />
+    </>
+  );
 }

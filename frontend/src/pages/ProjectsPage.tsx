@@ -1,7 +1,6 @@
 import { Eye, FolderPlus, FolderTree, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
 import {
   Dialog,
@@ -129,8 +128,6 @@ export function ProjectsPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-6 md:px-6">
-      <PageHeader title="Proyectos" subtitle="Crea un proyecto y organiza tus archivos de traduccion." />
-
       <section className="py-1">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
           <FolderPlus size={16} className="text-zinc-700" />

@@ -13,7 +13,6 @@ import {
 import type { ChangeEvent, DragEvent, FormEvent, ReactNode } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { PageHeader } from '../components/PageHeader';
 import { AiContextSection } from '../components/project-detail/AiContextSection';
 import { AnalysisSection } from '../components/project-detail/AnalysisSection';
 import { EditorSection } from '../components/project-detail/EditorSection';
@@ -269,20 +268,44 @@ function SectionNavSidebar({
 }) {
   const navRef = useRef<HTMLElement>(null);
   const [pill, setPill] = useState({ top: 0, height: 44 });
+  const [pillReady, setPillReady] = useState(false);
+
+  const pillInitialized = useRef(false);
+  const pendingPillPos = useRef<{ top: number; height: number } | null>(null);
+
+  const measurePill = (nav: HTMLElement | null) => {
+    if (!nav) return null;
+    const active = nav.querySelector<HTMLElement>('[data-active="true"]');
+    if (!active) return null;
+    return { top: active.offsetTop, height: active.offsetHeight };
+  };
 
   useLayoutEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return;
-    const active = nav.querySelector<HTMLElement>('[data-active="true"]');
-    if (!active) return;
-    setPill({ top: active.offsetTop, height: active.offsetHeight });
+    const pos = measurePill(navRef.current);
+    if (!pos) return;
+    if (!pillInitialized.current) {
+      pillInitialized.current = true;
+      setPill(pos);
+    } else {
+      pendingPillPos.current = pos;
+    }
+  }, [activeSection]);
+
+  useEffect(() => {
+    if (pendingPillPos.current) {
+      setPill(pendingPillPos.current);
+      pendingPillPos.current = null;
+    }
+    if (!pillReady) setPillReady(true);
   }, [activeSection]);
 
   return (
     <nav ref={navRef} className="relative space-y-1">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 rounded-md bg-zinc-900 transition-all duration-200 ease-out"
+        className={`pointer-events-none absolute inset-x-0 rounded-md bg-zinc-900 ${
+          pillReady ? 'transition-[top,height] duration-200 ease-out' : ''
+        }`}
         style={{ top: pill.top, height: pill.height }}
       />
       {SECTION_ITEMS.map((section) => {
@@ -292,8 +315,10 @@ function SectionNavSidebar({
             key={section.id}
             type="button"
             data-active={isActive ? 'true' : undefined}
-            className={`relative z-10 flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-sm transition-colors duration-200 ${
-              isActive ? 'text-white' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'
+            className={`relative z-10 flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-sm ${
+              isActive
+                ? 'text-white [transition:color_0ms_180ms]'
+                : 'text-zinc-700 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-900'
             }`}
             onClick={() => onSelect(section.id)}
           >
@@ -301,7 +326,13 @@ function SectionNavSidebar({
               {sectionIconById[section.id]}
               {section.label}
             </span>
-            <span className={`h-1.5 w-1.5 rounded-full transition-colors duration-200 ${isActive ? 'bg-white' : 'bg-zinc-300'}`} />
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                isActive
+                  ? 'bg-white [transition:background-color_0ms_180ms]'
+                  : 'bg-zinc-300 transition-colors duration-150'
+              }`}
+            />
           </button>
         );
       })}
@@ -318,25 +349,49 @@ function SectionNavMobile({
 }) {
   const navRef = useRef<HTMLElement>(null);
   const [pill, setPill] = useState({ left: 0, top: 0, width: 0, height: 0 });
+  const [pillReady, setPillReady] = useState(false);
 
-  useLayoutEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return;
+  const pillInitialized = useRef(false);
+  const pendingPillPos = useRef<{ left: number; top: number; width: number; height: number } | null>(null);
+
+  const measurePill = (nav: HTMLElement | null) => {
+    if (!nav) return null;
     const active = nav.querySelector<HTMLElement>('[data-active="true"]');
-    if (!active) return;
-    setPill({
+    if (!active) return null;
+    return {
       left: active.offsetLeft,
       top: active.offsetTop,
       width: active.offsetWidth,
       height: active.offsetHeight,
-    });
+    };
+  };
+
+  useLayoutEffect(() => {
+    const pos = measurePill(navRef.current);
+    if (!pos) return;
+    if (!pillInitialized.current) {
+      pillInitialized.current = true;
+      setPill(pos);
+    } else {
+      pendingPillPos.current = pos;
+    }
+  }, [activeSection]);
+
+  useEffect(() => {
+    if (pendingPillPos.current) {
+      setPill(pendingPillPos.current);
+      pendingPillPos.current = null;
+    }
+    if (!pillReady) setPillReady(true);
   }, [activeSection]);
 
   return (
     <nav ref={navRef} className="relative grid grid-cols-3 gap-1">
       <div
         aria-hidden
-        className="pointer-events-none absolute rounded-lg bg-zinc-900 transition-all duration-200 ease-out"
+        className={`pointer-events-none absolute rounded-lg bg-zinc-900 ${
+          pillReady ? 'transition-[top,left,width,height] duration-200 ease-out' : ''
+        }`}
         style={{ left: pill.left, top: pill.top, width: pill.width, height: pill.height }}
       />
       {SECTION_ITEMS.map((section) => {
@@ -346,8 +401,10 @@ function SectionNavMobile({
             key={section.id}
             type="button"
             data-active={isActive ? 'true' : undefined}
-            className={`relative z-10 flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-medium transition-colors duration-200 ${
-              isActive ? 'text-white' : 'text-zinc-600 hover:text-zinc-900'
+            className={`relative z-10 flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-medium ${
+              isActive
+                ? 'text-white [transition:color_0ms_180ms]'
+                : 'text-zinc-600 transition-colors duration-150 hover:text-zinc-900'
             }`}
             onClick={() => onSelect(section.id)}
           >
@@ -2319,11 +2376,6 @@ export function ProjectDetailPage() {
 
   return (
     <>
-      <PageHeader
-        title={project ? project.name : 'Proyecto'}
-        subtitle="Gestión de idiomas y carga inicial de traducciones"
-      />
-
       <main className="mx-auto w-full max-w-6xl px-4 pb-24 md:px-6 lg:pb-6">
         <div className="lg:hidden">
           <div className="fixed bottom-3 left-1/2 z-30 w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-2xl border border-zinc-200 bg-white/95 p-1.5 shadow-lg backdrop-blur">

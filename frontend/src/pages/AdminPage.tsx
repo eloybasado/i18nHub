@@ -1,6 +1,5 @@
 import { Edit3, FolderKanban, Save, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
 import { ConfirmModal } from '../components/ui/confirm-modal';
 import {
@@ -242,7 +241,6 @@ export function AdminPage() {
   if (!profile) {
     return (
       <main className="mx-auto w-full max-w-6xl px-4 py-6 md:px-6">
-        <PageHeader title="Administración" subtitle="Cargando acceso..." />
         {error ? (
           <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
         ) : null}
@@ -253,7 +251,6 @@ export function AdminPage() {
   if (!isAdmin) {
     return (
       <main className="mx-auto w-full max-w-4xl px-4 py-6 md:px-6">
-        <PageHeader title="Administración" subtitle="Acceso restringido" />
         <section className="mt-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-zinc-900">No tienes permisos para acceder a esta sección.</p>
           <p className="mt-2 text-sm text-zinc-600">
@@ -266,11 +263,6 @@ export function AdminPage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6">
-      <PageHeader
-        title="Administración"
-        subtitle="Gestiona usuarios, tiers y proyectos del sistema desde un único panel."
-      />
-
       {error ? (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       ) : null}

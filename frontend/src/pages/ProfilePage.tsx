@@ -1,7 +1,6 @@
 import { ShieldCheck, UserRound } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
-import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { apiRequest } from '../lib/api';
@@ -78,8 +77,6 @@ export function ProfilePage() {
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-6 md:px-6">
-      <PageHeader title="Mi perfil" subtitle="Gestióna tu informacion de cuenta y opciones de sesión." />
-
       {error ? (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       ) : null}
