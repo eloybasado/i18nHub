@@ -214,217 +214,31 @@ function ReferenceToggle({ active, onChange }: { active: boolean; onChange: (v: 
   );
 }
 
-type IssuesBadgeProps = {
-  sortedIssues: AnalysisIssue[];
-  activeIssueId: string | null;
-  resolvedIssueIds: Set<string>;
-  languageNameById: Map<string, { name: string; code: string }>;
-  onGoToIssue: (issue: AnalysisIssue) => void;
-  onFixIncorrectNesting: (issue: AnalysisIssue) => void;
+// Simple stateless badge button — panel state lives in EditorSection
+type IssuesBadgeButtonProps = {
+  pending: number;
+  panelOpen: boolean;
+  onToggle: (anchorRect: DOMRect) => void;
 };
 
-function IssuesBadge({
-  sortedIssues,
-  activeIssueId,
-  resolvedIssueIds,
-  languageNameById,
-  onGoToIssue,
-  onFixIncorrectNesting,
-}: IssuesBadgeProps) {
-  const MIN_W = 260;
-  const MIN_H = 180;
-  const DEFAULT_W = 320;
-  const DEFAULT_H = 360;
-
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
-  const [size, setSize] = useState({ w: DEFAULT_W, h: DEFAULT_H });
-  const [hideResolved, setHideResolved] = useState(false);
-  const badgeRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
-  const resizeState = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);
-  const resolvedCount = sortedIssues.filter((i) => resolvedIssueIds.has(i.id)).length;
-  const pending = sortedIssues.length - resolvedCount;
-
-  const clampPos = (x: number, y: number, w = size.w, h = size.h) => ({
-    x: Math.max(0, Math.min(x, window.innerWidth - w)),
-    y: Math.max(0, Math.min(y, window.innerHeight - h)),
-  });
-
-  const handleToggle = () => {
-    if (open) { setOpen(false); return; }
-    if (!pos && badgeRef.current) {
-      const rect = badgeRef.current.getBoundingClientRect();
-      setPos(clampPos(rect.left, rect.bottom + 8));
-    }
-    setOpen(true);
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const onResize = () => setPos((prev) => prev ? clampPos(prev.x, prev.y) : prev);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [open, size]);
-
-  const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!pos) return;
-    e.preventDefault();
-    dragState.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
-    const onMove = (ev: MouseEvent) => {
-      if (!dragState.current) return;
-      setPos(clampPos(
-        dragState.current.origX + ev.clientX - dragState.current.startX,
-        dragState.current.origY + ev.clientY - dragState.current.startY,
-      ));
-    };
-    const onUp = () => {
-      dragState.current = null;
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  };
-
-  const handleResizeStart = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    resizeState.current = { startX: e.clientX, startY: e.clientY, origW: size.w, origH: size.h };
-    const onMove = (ev: MouseEvent) => {
-      if (!resizeState.current) return;
-      const newW = Math.max(MIN_W, resizeState.current.origW + ev.clientX - resizeState.current.startX);
-      const newH = Math.max(MIN_H, resizeState.current.origH + ev.clientY - resizeState.current.startY);
-      setSize({ w: newW, h: newH });
-      setPos((prev) => prev ? clampPos(prev.x, prev.y, newW, newH) : prev);
-    };
-    const onUp = () => {
-      resizeState.current = null;
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  };
-
+function IssuesBadgeButton({ pending, panelOpen, onToggle }: IssuesBadgeButtonProps) {
+  const ref = useRef<HTMLButtonElement>(null);
   return (
-    <div className="relative shrink-0" ref={badgeRef}>
-      <button
-        type="button"
-        onClick={handleToggle}
-        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-          open
-            ? 'bg-zinc-900 text-white'
-            : pending > 0
-              ? 'bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100'
-              : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100'
-        }`}
-      >
-        <TriangleAlert size={12} />
-        {pending > 0 ? `${pending} issues` : 'Sin issues'}
-      </button>
-
-      {open && pos && (
-        <div
-          ref={panelRef}
-          className="fixed z-50 flex flex-col rounded-xl border border-zinc-200 bg-white shadow-xl overflow-hidden"
-          style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
-        >
-          {/* Header / drag handle */}
-          <div
-            className="flex shrink-0 cursor-grab items-center justify-between border-b border-zinc-100 px-3 py-2 active:cursor-grabbing"
-            onMouseDown={handleDragStart}
-          >
-            <div className="flex items-center gap-2 select-none">
-              {resolvedCount > 0 && (
-                <span className="flex items-center gap-1 text-xs text-emerald-600">
-                  <CheckCircle2 size={12} />
-                  {resolvedCount}/{sortedIssues.length}
-                </span>
-              )}
-              {resolvedCount > 0 && (
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); setHideResolved((v) => !v); }}
-                  className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
-                    hideResolved ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700'
-                  }`}
-                >
-                  <EyeOff size={10} />
-                  {hideResolved ? `${pending} pendientes` : 'Ocultar resueltos'}
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                disabled={sortedIssues.findIndex((i) => i.id === activeIssueId) <= 0}
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const idx = sortedIssues.findIndex((i) => i.id === activeIssueId);
-                  if (idx > 0) onGoToIssue(sortedIssues[idx - 1]);
-                }}
-                className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-30"
-              >
-                <ChevronLeft size={13} />
-              </button>
-              <button
-                type="button"
-                disabled={(() => {
-                  const idx = sortedIssues.findIndex((i) => i.id === activeIssueId);
-                  return idx !== -1 && idx >= sortedIssues.length - 1;
-                })()}
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const idx = sortedIssues.findIndex((i) => i.id === activeIssueId);
-                  if (idx === -1) onGoToIssue(sortedIssues[0]);
-                  else if (idx < sortedIssues.length - 1) onGoToIssue(sortedIssues[idx + 1]);
-                }}
-                className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-30"
-              >
-                <ChevronRight size={13} />
-              </button>
-              <button
-                type="button"
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={() => setOpen(false)}
-                className="ml-1 rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
-              >
-                <Minimize2 size={13} />
-              </button>
-            </div>
-          </div>
-
-          {/* Scrollable content */}
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <EditorIssueList
-              issues={sortedIssues}
-              activeIssueId={activeIssueId}
-              resolvedIssueIds={resolvedIssueIds}
-              hideResolved={hideResolved}
-              languageNameById={languageNameById}
-              onGoToIssue={onGoToIssue}
-              onFixIncorrectNesting={onFixIncorrectNesting}
-            />
-          </div>
-
-          {/* Resize handle */}
-          <div
-            className="absolute bottom-0 right-0 h-4 w-4 cursor-se-resize"
-            onMouseDown={handleResizeStart}
-            title="Redimensionar"
-          >
-            <svg viewBox="0 0 16 16" className="h-full w-full text-zinc-300">
-              <path d="M12 4 L4 12 M16 8 L8 16 M16 12 L12 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </div>
-        </div>
-      )}
-    </div>
+    <button
+      ref={ref}
+      type="button"
+      onClick={() => ref.current && onToggle(ref.current.getBoundingClientRect())}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+        panelOpen
+          ? 'bg-zinc-900 text-white'
+          : pending > 0
+            ? 'bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100'
+            : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100'
+      }`}
+    >
+      <TriangleAlert size={12} />
+      {pending > 0 ? `${pending} issues` : 'Sin issues'}
+    </button>
   );
 }
 
@@ -501,6 +315,81 @@ export function EditorSection({
   const treeSearchRef = useRef<HTMLDivElement>(null);
   const [rawSearchQuery, setRawSearchQuery] = useState('');
   const [rawSearchIndex, setRawSearchIndex] = useState(0);
+
+  // ── Issues panel — state lives here so it survives mode/file changes ──────
+  const PANEL_MIN_W = 260;
+  const PANEL_MIN_H = 180;
+  const PANEL_DEFAULT_W = 320;
+  const PANEL_DEFAULT_H = 360;
+  const [issuesPanelOpen, setIssuesPanelOpen] = useState(false);
+  const [issuesPanelPos, setIssuesPanelPos] = useState<{ x: number; y: number } | null>(null);
+  const [issuesPanelSize, setIssuesPanelSize] = useState({ w: PANEL_DEFAULT_W, h: PANEL_DEFAULT_H });
+  const [issuesHideResolved, setIssuesHideResolved] = useState(false);
+  const issuesPanelRef = useRef<HTMLDivElement>(null);
+  const issuesDragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const issuesResizeState = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);
+
+  const clampPanelPos = (x: number, y: number, w = issuesPanelSize.w, h = issuesPanelSize.h) => ({
+    x: Math.max(0, Math.min(x, window.innerWidth - w)),
+    y: Math.max(0, Math.min(y, window.innerHeight - h)),
+  });
+
+  const handleIssuesBadgeToggle = (anchorRect: DOMRect) => {
+    if (issuesPanelOpen) { setIssuesPanelOpen(false); return; }
+    if (!issuesPanelPos) {
+      setIssuesPanelPos(clampPanelPos(anchorRect.left, anchorRect.bottom + 8));
+    }
+    setIssuesPanelOpen(true);
+  };
+
+  useEffect(() => {
+    if (!issuesPanelOpen) return;
+    const onResize = () => setIssuesPanelPos((prev) => prev ? clampPanelPos(prev.x, prev.y) : prev);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [issuesPanelOpen, issuesPanelSize]);
+
+  const handleIssuesDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!issuesPanelPos) return;
+    e.preventDefault();
+    issuesDragState.current = { startX: e.clientX, startY: e.clientY, origX: issuesPanelPos.x, origY: issuesPanelPos.y };
+    const onMove = (ev: MouseEvent) => {
+      if (!issuesDragState.current) return;
+      setIssuesPanelPos(clampPanelPos(
+        issuesDragState.current.origX + ev.clientX - issuesDragState.current.startX,
+        issuesDragState.current.origY + ev.clientY - issuesDragState.current.startY,
+      ));
+    };
+    const onUp = () => {
+      issuesDragState.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  const handleIssuesResizeStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    issuesResizeState.current = { startX: e.clientX, startY: e.clientY, origW: issuesPanelSize.w, origH: issuesPanelSize.h };
+    const onMove = (ev: MouseEvent) => {
+      if (!issuesResizeState.current) return;
+      const newW = Math.max(PANEL_MIN_W, issuesResizeState.current.origW + ev.clientX - issuesResizeState.current.startX);
+      const newH = Math.max(PANEL_MIN_H, issuesResizeState.current.origH + ev.clientY - issuesResizeState.current.startY);
+      setIssuesPanelSize({ w: newW, h: newH });
+      setIssuesPanelPos((prev) => prev ? clampPanelPos(prev.x, prev.y, newW, newH) : prev);
+    };
+    const onUp = () => {
+      issuesResizeState.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [addPath, setAddPath] = useState('');
   const [addValue, setAddValue] = useState('');
@@ -903,13 +792,10 @@ export function EditorSection({
               <ReferenceToggle active={showReferenceOverlay} onChange={onShowReferenceOverlayChange} />
             )}
             {sortedIssues.length > 0 && (
-              <IssuesBadge
-                sortedIssues={sortedIssues}
-                activeIssueId={activeIssueId}
-                resolvedIssueIds={resolvedIssueIds}
-                languageNameById={languageNameById}
-                onGoToIssue={onGoToIssue}
-                onFixIncorrectNesting={onFixIncorrectNesting}
+              <IssuesBadgeButton
+                pending={sortedIssues.length - sortedIssues.filter((i) => resolvedIssueIds.has(i.id)).length}
+                panelOpen={issuesPanelOpen}
+                onToggle={handleIssuesBadgeToggle}
               />
             )}
           </div>
@@ -1091,13 +977,10 @@ export function EditorSection({
             )}
 
             {editorFileId && sortedIssues.length > 0 && (
-              <IssuesBadge
-                sortedIssues={sortedIssues}
-                activeIssueId={activeIssueId}
-                resolvedIssueIds={resolvedIssueIds}
-                languageNameById={languageNameById}
-                onGoToIssue={onGoToIssue}
-                onFixIncorrectNesting={onFixIncorrectNesting}
+              <IssuesBadgeButton
+                pending={sortedIssues.length - sortedIssues.filter((i) => resolvedIssueIds.has(i.id)).length}
+                panelOpen={issuesPanelOpen}
+                onToggle={handleIssuesBadgeToggle}
               />
             )}
 
@@ -1263,6 +1146,108 @@ export function EditorSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Issues floating panel — rendered once, survives mode/file changes ── */}
+      {issuesPanelOpen && issuesPanelPos && (
+        <div
+          ref={issuesPanelRef}
+          className="fixed z-50 flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl"
+          style={{ left: issuesPanelPos.x, top: issuesPanelPos.y, width: issuesPanelSize.w, height: issuesPanelSize.h }}
+        >
+          <div
+            className="flex shrink-0 cursor-grab items-center justify-between border-b border-zinc-100 px-3 py-2 active:cursor-grabbing"
+            onMouseDown={handleIssuesDragStart}
+          >
+            <div className="flex select-none items-center gap-2">
+              {(() => {
+                const resolvedCount = sortedIssues.filter((i) => resolvedIssueIds.has(i.id)).length;
+                const pending = sortedIssues.length - resolvedCount;
+                if (resolvedCount === 0) return null;
+                return (
+                  <>
+                    <span className="flex items-center gap-1 text-xs text-emerald-600">
+                      <CheckCircle2 size={12} />
+                      {resolvedCount}/{sortedIssues.length}
+                    </span>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => { e.stopPropagation(); setIssuesHideResolved((v) => !v); }}
+                      className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+                        issuesHideResolved ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700'
+                      }`}
+                    >
+                      <EyeOff size={10} />
+                      {issuesHideResolved ? `${pending} pendientes` : 'Ocultar resueltos'}
+                    </button>
+                  </>
+                );
+              })()}
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={sortedIssues.findIndex((i) => i.id === activeIssueId) <= 0}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const idx = sortedIssues.findIndex((i) => i.id === activeIssueId);
+                  if (idx > 0) onGoToIssue(sortedIssues[idx - 1]);
+                }}
+                className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-30"
+              >
+                <ChevronLeft size={13} />
+              </button>
+              <button
+                type="button"
+                disabled={(() => {
+                  const idx = sortedIssues.findIndex((i) => i.id === activeIssueId);
+                  return idx !== -1 && idx >= sortedIssues.length - 1;
+                })()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const idx = sortedIssues.findIndex((i) => i.id === activeIssueId);
+                  if (idx === -1) onGoToIssue(sortedIssues[0]);
+                  else if (idx < sortedIssues.length - 1) onGoToIssue(sortedIssues[idx + 1]);
+                }}
+                className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-30"
+              >
+                <ChevronRight size={13} />
+              </button>
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => setIssuesPanelOpen(false)}
+                className="ml-1 rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+              >
+                <Minimize2 size={13} />
+              </button>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <EditorIssueList
+              issues={sortedIssues}
+              activeIssueId={activeIssueId}
+              resolvedIssueIds={resolvedIssueIds}
+              hideResolved={issuesHideResolved}
+              languageNameById={languageNameById}
+              onGoToIssue={onGoToIssue}
+              onFixIncorrectNesting={onFixIncorrectNesting}
+            />
+          </div>
+
+          <div
+            className="absolute bottom-0 right-0 h-4 w-4 cursor-se-resize"
+            onMouseDown={handleIssuesResizeStart}
+          >
+            <svg viewBox="0 0 16 16" className="h-full w-full text-zinc-300">
+              <path d="M12 4 L4 12 M16 8 L8 16 M16 12 L12 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
