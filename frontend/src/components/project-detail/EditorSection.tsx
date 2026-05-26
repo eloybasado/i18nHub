@@ -202,14 +202,15 @@ function ReferenceToggle({ active, onChange }: { active: boolean; onChange: (v: 
     <button
       type="button"
       onClick={() => onChange(!active)}
-      title={active ? 'Ocultar referencia' : 'Ver referencia'}
-      className={`shrink-0 rounded-lg border p-1.5 transition-colors ${
+      title={active ? 'Ocultar idioma de referencia' : 'Mostrar idioma de referencia en paralelo'}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
         active
           ? 'border-zinc-900 bg-zinc-900 text-white'
           : 'border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700'
       }`}
     >
-      <Languages size={14} />
+      <Languages size={13} />
+      Referencia
     </button>
   );
 }
@@ -992,7 +993,7 @@ export function EditorSection({
             )}
 
             {editorFileId && !showAddForm && (
-              <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => setShowAddForm(true)}>
+              <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => { setAddPath(visualSearchInput.trim()); setShowAddForm(true); }}>
                 <Plus size={13} className="mr-1" />
                 Añadir clave
               </Button>

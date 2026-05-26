@@ -58,21 +58,18 @@ export function AiSuggestionReviewList({
 
       <ul className="grid max-h-[24rem] gap-3 overflow-auto pr-1 sm:grid-cols-2">
         {aiSuggestions.map((item) => (
-          <li
-            key={item.id}
-            className={`rounded-lg border bg-white p-3 shadow-sm transition-colors ${
-              item.selected ? 'border-zinc-400' : 'border-zinc-200'
-            }`}
-          >
+          <li key={item.id}>
+            <button
+              type="button"
+              className={`w-full rounded-lg border bg-white p-3 shadow-sm transition-colors text-left hover:bg-zinc-50 ${
+                item.selected ? 'border-zinc-400' : 'border-zinc-200'
+              }`}
+              onClick={() => onToggleAiSuggestion(item.id)}
+            >
             <div className="flex items-start gap-3">
-              <button
-                type="button"
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-zinc-800"
-                aria-label={item.selected ? 'Deseleccionar sugerencia' : 'Seleccionar sugerencia'}
-                onClick={() => onToggleAiSuggestion(item.id)}
-              >
+              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-zinc-800">
                 {item.selected ? <CheckCircle2 size={24} /> : <Circle size={24} />}
-              </button>
+              </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-mono text-base text-zinc-800">{item.key}</p>
                 <div className="mt-1 flex flex-wrap gap-1">
@@ -93,6 +90,7 @@ export function AiSuggestionReviewList({
                 {item.reason ? <p className="mt-1 text-xs text-zinc-500">{item.reason}</p> : null}
               </div>
             </div>
+            </button>
           </li>
         ))}
       </ul>
