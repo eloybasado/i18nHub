@@ -518,9 +518,7 @@ export function JsonTreeEditor({
 
   if (entries.length === 0) {
     return (
-      <div className="flex h-[580px] items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50">
-        <p className="text-sm text-zinc-400">Sin entradas para mostrar.</p>
-      </div>
+      <p className="mt-2 text-sm text-zinc-400">Sin entradas para mostrar.</p>
     );
   }
 

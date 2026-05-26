@@ -2,13 +2,14 @@ import {
   Archive,
   Bot,
   Braces,
+  ChevronLeft,
+  ChevronRight,
   CircleHelp,
   Download,
-  Eye,
-  EyeOff,
   FilePenLine,
   FileSearch,
   Files,
+  Languages,
   ListFilter,
   Maximize2,
   Minimize2,
@@ -106,6 +107,27 @@ const AI_SUGGESTION_ISSUE_TYPE_OPTIONS: SelectModalOption<AiSuggestionIssueType>
   },
 ];
 
+const VISUAL_ISSUE_ROW_CLASS: Record<string, string> = {
+  MISSING_KEY: 'border-red-200 bg-red-50/40',
+  UNUSED_KEY: 'border-yellow-200 bg-yellow-50/40',
+  INTERPOLATION_MISMATCH: 'border-orange-200 bg-orange-50/40',
+  INCORRECT_NESTING: 'border-amber-200 bg-amber-50/40',
+};
+
+const VISUAL_ISSUE_BADGE_CLASS: Record<string, string> = {
+  MISSING_KEY: 'bg-red-100 text-red-700',
+  UNUSED_KEY: 'bg-yellow-100 text-yellow-700',
+  INTERPOLATION_MISMATCH: 'bg-orange-100 text-orange-700',
+  INCORRECT_NESTING: 'bg-amber-100 text-amber-700',
+};
+
+const VISUAL_ISSUE_LABEL: Record<string, string> = {
+  MISSING_KEY: 'Falta',
+  UNUSED_KEY: 'Extra',
+  INTERPOLATION_MISMATCH: 'Interpolación',
+  INCORRECT_NESTING: 'Anidado',
+};
+
 type EditorSectionProps = {
   translationFiles: TranslationFileSummary[];
   editorFileId: string | null;
@@ -170,6 +192,179 @@ type EditorSectionProps = {
   onFixIncorrectNesting: (issue: AnalysisIssue) => void;
   editorHasChanges: boolean;
 };
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function ReferenceToggle({ active, onChange }: { active: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!active)}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all ${
+        active
+          ? 'bg-violet-100 text-violet-700 ring-1 ring-violet-300'
+          : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700'
+      }`}
+    >
+      <Languages size={12} />
+      {active ? 'Referencia activa' : 'Ver referencia'}
+    </button>
+  );
+}
+
+type IssuesBadgeProps = {
+  sortedIssues: AnalysisIssue[];
+  activeIssueId: string | null;
+  resolvedIssueIds: Set<string>;
+  languageNameById: Map<string, { name: string; code: string }>;
+  onGoToIssue: (issue: AnalysisIssue) => void;
+  onFixIncorrectNesting: (issue: AnalysisIssue) => void;
+};
+
+function IssuesBadge({
+  sortedIssues,
+  activeIssueId,
+  resolvedIssueIds,
+  languageNameById,
+  onGoToIssue,
+  onFixIncorrectNesting,
+}: IssuesBadgeProps) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const badgeRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const resolvedCount = sortedIssues.filter((i) => resolvedIssueIds.has(i.id)).length;
+  const pending = sortedIssues.length - resolvedCount;
+
+  const clamp = (x: number, y: number): { x: number; y: number } => {
+    const w = panelRef.current?.offsetWidth ?? 288;
+    const h = panelRef.current?.offsetHeight ?? 300;
+    return {
+      x: Math.max(0, Math.min(x, window.innerWidth - w)),
+      y: Math.max(0, Math.min(y, window.innerHeight - h)),
+    };
+  };
+
+  const handleToggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    if (!pos && badgeRef.current) {
+      const rect = badgeRef.current.getBoundingClientRect();
+      setPos(clamp(rect.left, rect.bottom + 8));
+    }
+    setOpen(true);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onResize = () => setPos((prev) => prev ? clamp(prev.x, prev.y) : prev);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [open]);
+
+  const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!pos) return;
+    e.preventDefault();
+    dragState.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragState.current) return;
+      setPos(clamp(
+        dragState.current.origX + ev.clientX - dragState.current.startX,
+        dragState.current.origY + ev.clientY - dragState.current.startY,
+      ));
+    };
+    const onUp = () => {
+      dragState.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  return (
+    <div className="relative shrink-0" ref={badgeRef}>
+      <button
+        type="button"
+        onClick={handleToggle}
+        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+          open
+            ? 'bg-zinc-900 text-white'
+            : pending > 0
+              ? 'bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100'
+              : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100'
+        }`}
+      >
+        <TriangleAlert size={12} />
+        {pending > 0 ? `${pending} issues` : 'Sin issues'}
+      </button>
+
+      {open && pos && (
+        <div
+          ref={panelRef}
+          className="fixed z-50 w-72 rounded-xl border border-zinc-200 bg-white shadow-xl"
+          style={{ left: pos.x, top: pos.y }}
+        >
+          <div
+            className="flex cursor-grab items-center justify-between border-b border-zinc-100 px-3 py-2 active:cursor-grabbing"
+            onMouseDown={handleDragStart}
+          >
+            <span className="text-xs font-semibold text-zinc-700 select-none">Issues del archivo</span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={sortedIssues.findIndex((i) => i.id === activeIssueId) <= 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const idx = sortedIssues.findIndex((i) => i.id === activeIssueId);
+                  if (idx > 0) onGoToIssue(sortedIssues[idx - 1]);
+                }}
+                className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-30"
+              >
+                <ChevronLeft size={13} />
+              </button>
+              <button
+                type="button"
+                disabled={(() => {
+                  const idx = sortedIssues.findIndex((i) => i.id === activeIssueId);
+                  return idx !== -1 && idx >= sortedIssues.length - 1;
+                })()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const idx = sortedIssues.findIndex((i) => i.id === activeIssueId);
+                  if (idx === -1) onGoToIssue(sortedIssues[0]);
+                  else if (idx < sortedIssues.length - 1) onGoToIssue(sortedIssues[idx + 1]);
+                }}
+                className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-30"
+              >
+                <ChevronRight size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="ml-1 rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+              >
+                <Minimize2 size={13} />
+              </button>
+            </div>
+          </div>
+          <EditorIssueList
+            issues={sortedIssues}
+            activeIssueId={activeIssueId}
+            resolvedIssueIds={resolvedIssueIds}
+            languageNameById={languageNameById}
+            onGoToIssue={onGoToIssue}
+            onFixIncorrectNesting={onFixIncorrectNesting}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function EditorSection({
   translationFiles,
@@ -437,30 +632,35 @@ export function EditorSection({
             onViewVersion={onViewVersion}
           />
 
+          <CloneToLanguageWizardModal
+            disabled={!editorFileId}
+            editorBusy={editorBusy}
+            editorTargetLanguageId={editorTargetLanguageId}
+            editorTargetLanguageOptions={editorTargetLanguageOptions}
+            editorCloneMode={editorCloneMode}
+            selectedTargetLanguage={selectedTargetLanguage}
+            onTargetLanguageChange={onTargetLanguageChange}
+            onCloneModeChange={onCloneModeChange}
+            onCloneEmptyStructure={onCloneEmptyStructure}
+            onRequestCopyContent={onRequestCopyContent}
+            onTranslateFullWithAi={onTranslateFullWithAi}
+          />
+
           <div className="group relative">
             <button
               type="button"
               className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-600 transition-colors hover:bg-zinc-100"
-              aria-label="Informacion sobre exportaciones"
+              aria-label="Información sobre exportaciones"
             >
               <CircleHelp size={15} />
             </button>
             <div className="pointer-events-none absolute right-0 top-10 z-20 w-72 rounded-lg border border-zinc-200 bg-white p-3 text-sm text-zinc-700 opacity-0 shadow-md transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-              Exportar JSON descarga solo el archivo que estas editando. Exportar ZIP descarga todos los archivos del
-              proyecto.
+              Exportar JSON descarga solo el archivo que estás editando. Exportar ZIP descarga todos los archivos del proyecto.
             </div>
           </div>
         </div>
       </div>
 
-      <EditorIssueList
-        issues={sortedIssues}
-        activeIssueId={activeIssueId}
-        resolvedIssueIds={resolvedIssueIds}
-        languageNameById={languageNameById}
-        onGoToIssue={onGoToIssue}
-        onFixIncorrectNesting={onFixIncorrectNesting}
-      />
 
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <div className="min-w-[220px] flex-1">
@@ -565,22 +765,23 @@ export function EditorSection({
 
       {editorMode === 'TREE' ? (
         <div className="mt-3">
-          {treeReferenceEntries && treeReferenceEntries.length > 0 && (
-            <div className="mb-2 flex items-center justify-end">
-              <button
-                type="button"
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  showReferenceOverlay
-                    ? 'border-zinc-700 bg-zinc-900 text-white'
-                    : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50'
-                }`}
-                onClick={() => onShowReferenceOverlayChange(!showReferenceOverlay)}
-              >
-                {showReferenceOverlay ? <Eye size={12} /> : <EyeOff size={12} />}
-                Superponer referencia
-              </button>
+          {(treeReferenceEntries && treeReferenceEntries.length > 0) || sortedIssues.length > 0 ? (
+            <div className="mb-2 flex items-center justify-end gap-2">
+              {treeReferenceEntries && treeReferenceEntries.length > 0 && (
+                <ReferenceToggle active={showReferenceOverlay} onChange={onShowReferenceOverlayChange} />
+              )}
+              {sortedIssues.length > 0 && (
+                <IssuesBadge
+                  sortedIssues={sortedIssues}
+                  activeIssueId={activeIssueId}
+                  resolvedIssueIds={resolvedIssueIds}
+                  languageNameById={languageNameById}
+                  onGoToIssue={onGoToIssue}
+                  onFixIncorrectNesting={onFixIncorrectNesting}
+                />
+              )}
             </div>
-          )}
+          ) : null}
           <JsonTreeEditor
             entries={editorVisualEntries}
             referenceEntries={treeReferenceEntries}
@@ -693,8 +894,9 @@ export function EditorSection({
         )
       ) : (
         <div className="mt-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="relative w-full max-w-xl">
+          {/* Toolbar: search + add + reference + issues badge */}
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
               <Search
                 size={15}
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
@@ -707,29 +909,77 @@ export function EditorSection({
                 disabled={!editorFileId}
               />
             </div>
-            <span className="rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600">
-              {filteredVisualEntries.length} campos
-            </span>
-          </div>
 
             {treeReferenceEntries && treeReferenceEntries.length > 0 && (
-            <div className="mb-3 flex items-center justify-end">
-              <button
-                type="button"
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  showReferenceOverlay
-                    ? 'border-zinc-700 bg-zinc-900 text-white'
-                    : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50'
-                }`}
-                onClick={() => onShowReferenceOverlayChange(!showReferenceOverlay)}
-              >
-                {showReferenceOverlay ? <Eye size={12} /> : <EyeOff size={12} />}
-                Mostrar referencia
-              </button>
+              <ReferenceToggle active={showReferenceOverlay} onChange={onShowReferenceOverlayChange} />
+            )}
+
+            {editorFileId && sortedIssues.length > 0 && (
+              <IssuesBadge
+                sortedIssues={sortedIssues}
+                activeIssueId={activeIssueId}
+                resolvedIssueIds={resolvedIssueIds}
+                languageNameById={languageNameById}
+                onGoToIssue={onGoToIssue}
+                onFixIncorrectNesting={onFixIncorrectNesting}
+              />
+            )}
+
+            {editorFileId && !showAddForm && (
+              <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => setShowAddForm(true)}>
+                <Plus size={13} className="mr-1" />
+                Añadir clave
+              </Button>
+            )}
+          </div>
+
+          {editorFileId && showAddForm && (
+            <div className="mt-2 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Nueva clave</p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  value={addPath}
+                  onChange={(e) => setAddPath(e.target.value)}
+                  placeholder="ej: auth.login"
+                  className="flex-1"
+                />
+                <Input
+                  value={addValue}
+                  onChange={(e) => setAddValue(e.target.value)}
+                  placeholder="valor de traducción"
+                  className="flex-1"
+                />
+              </div>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={!addPath.trim()}
+                  onClick={() => {
+                    if (!addPath.trim()) return;
+                    onAddEntry(addPath.trim(), addValue);
+                    setShowAddForm(false);
+                    setAddPath('');
+                    setAddValue('');
+                  }}
+                >
+                  Añadir
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setAddPath('');
+                    setAddValue('');
+                  }}
+                >
+                  Cancelar
+                </Button>
+              </div>
             </div>
           )}
 
-          <div className="mt-4 max-h-[560px] overflow-auto pr-1">
+          <div className="mt-3 max-h-[560px] overflow-auto pr-1">
             {!editorFileId ? (
               <p className="text-base text-zinc-500">Abre un archivo para empezar.</p>
             ) : filteredVisualEntries.length === 0 ? (
@@ -737,140 +987,78 @@ export function EditorSection({
                 No hay resultados con el filtro actual o no hay claves string editables.
               </p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {filteredVisualEntries.map((entry) => {
                   const refValue = showReferenceOverlay
                     ? treeReferenceEntries?.find((r) => r.path === entry.path)?.value
                     : undefined;
+                  const entryIssue = currentFileIssues.find((i) => i.key === entry.path);
+                  const isHighlighted = highlightedVisualPath === entry.path;
                   return (
                     <div
                       key={entry.path}
                       id={`visual-entry-${entry.path}`}
-                      className={`flex items-start gap-2 rounded-md border-b border-zinc-200 pb-4 ${
-                        highlightedVisualPath === entry.path && editorMode !== 'VISUAL'
-                          ? 'border-l-4 border-l-amber-400 bg-amber-50/70 px-2'
-                          : ''
+                      className={`rounded-lg border px-3 pb-3 pt-2.5 transition-colors ${
+                        isHighlighted
+                          ? 'border-amber-300 bg-amber-50/60'
+                          : entryIssue
+                            ? VISUAL_ISSUE_ROW_CLASS[entryIssue.type]
+                            : 'border-zinc-200 bg-white'
                       }`}
                     >
-                      <label className="flex-1">
-                        <span className="inline-flex rounded bg-zinc-100 px-2 py-1 font-mono text-sm font-semibold text-zinc-800">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="inline-flex rounded bg-zinc-100 px-2 py-1 font-mono text-xs font-semibold text-zinc-700">
                           {entry.path}
                         </span>
-                        {refValue !== undefined && (
-                          <p className="mt-1.5 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2 text-sm leading-relaxed text-zinc-400 italic">
-                            <span className="not-italic font-medium text-zinc-300 mr-1.5">ref:</span>
-                            {refValue || <span className="text-zinc-300">—</span>}
-                          </p>
-                        )}
-                        <textarea
-                          className="mt-2 min-h-[110px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base leading-relaxed text-zinc-900 outline-none focus:border-zinc-500"
-                          value={entry.value}
-                          onChange={(event) => onEditorVisualEntryChange(entry.path, event.target.value)}
-                          onFocus={() => {
-                            if (highlightedVisualPath === entry.path) {
-                              visualHighlightFocusedPathRef.current = entry.path;
-                            }
-                          }}
-                          onBlur={() => {
-                            if (visualHighlightFocusedPathRef.current === entry.path) {
-                              visualHighlightFocusedPathRef.current = null;
-                              onDismissHighlightedVisualPath();
-                            }
-                          }}
-                          disabled={!editorFileId}
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        className="mt-1 shrink-0 rounded p-1.5 text-zinc-300 hover:bg-red-50 hover:text-red-500"
-                        onClick={() => setDeletingPath(entry.path)}
-                        title="Eliminar clave"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                        <div className="flex items-center gap-1.5">
+                          {entryIssue && (
+                            <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${VISUAL_ISSUE_BADGE_CLASS[entryIssue.type]}`}>
+                              {VISUAL_ISSUE_LABEL[entryIssue.type]}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            className="shrink-0 rounded p-1 text-zinc-300 hover:bg-red-50 hover:text-red-500"
+                            onClick={() => setDeletingPath(entry.path)}
+                            title="Eliminar clave"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                      {refValue !== undefined && (
+                        <p className="mb-1.5 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2 text-sm leading-relaxed text-zinc-400 italic">
+                          <span className="not-italic font-medium text-zinc-300 mr-1.5">ref:</span>
+                          {refValue || <span className="text-zinc-300">—</span>}
+                        </p>
+                      )}
+                      <textarea
+                        rows={entry.value.split('\n').length > 2 ? entry.value.split('\n').length + 1 : 2}
+                        className="w-full resize-none rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm leading-relaxed text-zinc-900 outline-none focus:border-zinc-500"
+                        value={entry.value}
+                        onChange={(event) => onEditorVisualEntryChange(entry.path, event.target.value)}
+                        onFocus={() => {
+                          if (highlightedVisualPath === entry.path) {
+                            visualHighlightFocusedPathRef.current = entry.path;
+                          }
+                        }}
+                        onBlur={() => {
+                          if (visualHighlightFocusedPathRef.current === entry.path) {
+                            visualHighlightFocusedPathRef.current = null;
+                            onDismissHighlightedVisualPath();
+                          }
+                        }}
+                        disabled={!editorFileId}
+                      />
                     </div>
                   );
                 })}
               </div>
             )}
           </div>
-
-          {editorFileId &&
-            (showAddForm ? (
-              <div className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Nueva clave</p>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Input
-                    value={addPath}
-                    onChange={(e) => setAddPath(e.target.value)}
-                    placeholder="ej: auth.login"
-                    className="flex-1"
-                  />
-                  <Input
-                    value={addValue}
-                    onChange={(e) => setAddValue(e.target.value)}
-                    placeholder="valor de traducción"
-                    className="flex-1"
-                  />
-                </div>
-                <div className="mt-2 flex gap-2">
-                  <Button
-                    size="sm"
-                    disabled={!addPath.trim()}
-                    onClick={() => {
-                      if (!addPath.trim()) return;
-                      onAddEntry(addPath.trim(), addValue);
-                      setShowAddForm(false);
-                      setAddPath('');
-                      setAddValue('');
-                    }}
-                  >
-                    Añadir
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setShowAddForm(false);
-                      setAddPath('');
-                      setAddValue('');
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setShowAddForm(true)}>
-                <Plus size={13} className="mr-1.5" />
-                Añadir clave
-              </Button>
-            ))}
         </div>
       )}
 
-      <div className="mt-5 border-t border-zinc-200 pt-4">
-        <p className="text-base font-medium text-zinc-900">Crear/actualizar archivo en otro idioma</p>
-        <p className="mt-1 text-sm text-zinc-600">
-          Usa el asistente para elegir idioma destino y tipo de copia con explicación paso a paso.
-        </p>
-
-        <CloneToLanguageWizardModal
-          disabled={!editorFileId}
-          editorBusy={editorBusy}
-          editorTargetLanguageId={editorTargetLanguageId}
-          editorTargetLanguageOptions={editorTargetLanguageOptions}
-          editorCloneMode={editorCloneMode}
-          selectedTargetLanguage={selectedTargetLanguage}
-          onTargetLanguageChange={onTargetLanguageChange}
-          onCloneModeChange={onCloneModeChange}
-          onCloneEmptyStructure={onCloneEmptyStructure}
-          onRequestCopyContent={onRequestCopyContent}
-          onTranslateFullWithAi={onTranslateFullWithAi}
-        />
-      </div>
-
-      <div className="mt-5 border-t border-zinc-200 pt-4" />
 
       <Dialog open={Boolean(deletingPath)} onOpenChange={(open: boolean) => !open && setDeletingPath(null)}>
         <DialogContent>

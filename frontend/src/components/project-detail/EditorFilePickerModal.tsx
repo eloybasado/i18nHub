@@ -45,7 +45,8 @@ export function EditorFilePickerModal({
     if (!hasUnsavedChanges && open) {
       setOpen(false);
     }
-  }, [hasUnsavedChanges, open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasUnsavedChanges]); // Solo reacciona cuando cambia el estado de cambios, no al abrir
 
   const filteredFiles = useMemo(() => {
     const q = query.trim().toLowerCase();

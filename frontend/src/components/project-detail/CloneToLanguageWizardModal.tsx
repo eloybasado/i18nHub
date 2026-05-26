@@ -44,7 +44,7 @@ export function CloneToLanguageWizardModal({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button type="button" disabled={disabled} className="mt-3">
+        <Button type="button" disabled={disabled} variant="outline" size="sm">
           <WandSparkles size={14} className="mr-1.5" />
           Crear/actualizar idioma con asistente
         </Button>
