@@ -918,6 +918,13 @@ export function EditorSection({
                   </button>
                 </>
               )}
+              {sortedIssues.length > 0 && (
+                <IssuesBadgeButton
+                  pending={sortedIssues.length - sortedIssues.filter((i) => resolvedIssueIds.has(i.id)).length}
+                  panelOpen={issuesPanelOpen}
+                  onToggle={handleIssuesBadgeToggle}
+                />
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -976,7 +983,7 @@ export function EditorSection({
               <ReferenceToggle active={showReferenceOverlay} onChange={onShowReferenceOverlayChange} />
             )}
 
-            {editorFileId && sortedIssues.length > 0 && (
+            {sortedIssues.length > 0 && (
               <IssuesBadgeButton
                 pending={sortedIssues.length - sortedIssues.filter((i) => resolvedIssueIds.has(i.id)).length}
                 panelOpen={issuesPanelOpen}
