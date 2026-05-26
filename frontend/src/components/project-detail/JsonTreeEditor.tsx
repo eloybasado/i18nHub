@@ -8,13 +8,14 @@ import {
   Panel,
   Position,
   ReactFlow,
+  useReactFlow,
   type Edge,
   type Node,
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Maximize2, Minimize2, Pencil, Plus, Trash2 } from 'lucide-react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AnalysisIssue, IssueType } from '../../lib/types';
 import { Button } from '../ui/button';
 import { ConfirmModal } from '../ui/confirm-modal';
@@ -117,16 +118,18 @@ const JsonRootNode = memo(({ data }: NodeProps) => {
 JsonRootNode.displayName = 'JsonRootNode';
 
 const JsonGroupNode = memo(({ data }: NodeProps) => {
-  const { label, childCount, issueCount, onAdd, onDelete, hasIncorrectNesting } = data as {
+  const { label, childCount, issueCount, onAdd, onDelete, hasIncorrectNesting, isFocused } = data as {
     label: string;
     childCount: number;
     issueCount: number;
     hasIncorrectNesting?: boolean;
+    isFocused?: boolean;
     onAdd: () => void;
     onDelete: () => void;
   };
   let borderClass = 'border-zinc-200';
-  if (hasIncorrectNesting) borderClass = 'border-amber-300';
+  if (isFocused) borderClass = 'border-violet-400 ring-2 ring-violet-200';
+  else if (hasIncorrectNesting) borderClass = 'border-amber-300';
   else if (issueCount > 0) borderClass = 'border-red-200';
   return (
     <div className={`flex items-center gap-2 rounded-lg border-2 bg-white px-3 py-2.5 shadow-sm ${borderClass}`}>
@@ -171,7 +174,7 @@ const JsonGroupNode = memo(({ data }: NodeProps) => {
 JsonGroupNode.displayName = 'JsonGroupNode';
 
 const JsonLeafNode = memo(({ data }: NodeProps) => {
-  const { label, path, value, refValue, refDiffers, issue, isResolved, onEdit, onDelete } = data as {
+  const { label, path, value, refValue, refDiffers, issue, isResolved, isFocused, onEdit, onDelete } = data as {
     label: string;
     path: string;
     value: string;
@@ -179,19 +182,22 @@ const JsonLeafNode = memo(({ data }: NodeProps) => {
     refDiffers: boolean;
     issue: AnalysisIssue | undefined;
     isResolved: boolean;
+    isFocused?: boolean;
     onEdit: (path: string, value: string) => void;
     onDelete: (path: string) => void;
   };
 
   const keepIssueVisible = issue?.type === 'INCORRECT_NESTING';
 
-  const borderClass = keepIssueVisible
-    ? ISSUE_BORDER[issue.type]
-    : isResolved
-      ? 'border-emerald-300 bg-emerald-50/40'
-      : issue
-        ? ISSUE_BORDER[issue.type]
-        : 'border-zinc-200 bg-white';
+  const borderClass = isFocused
+    ? 'border-violet-400 bg-violet-50/40 ring-2 ring-violet-200'
+    : keepIssueVisible
+      ? ISSUE_BORDER[issue.type]
+      : isResolved
+        ? 'border-emerald-300 bg-emerald-50/40'
+        : issue
+          ? ISSUE_BORDER[issue.type]
+          : 'border-zinc-200 bg-white';
 
   return (
     <div className={`rounded-lg border-2 px-2.5 py-2 shadow-sm ${borderClass}`} style={{ width: LEAF_W }}>
@@ -309,6 +315,7 @@ function buildFlowGraph(
   showReference: boolean,
   issueByPath: Map<string, AnalysisIssue>,
   resolvedIssueIds: Set<string>,
+  focusPath: string | null,
   onEdit: (path: string, value: string) => void,
   onDelete: (path: string) => void,
   onAdd: (parentPath: string) => void,
@@ -354,6 +361,7 @@ function buildFlowGraph(
             childCount: node.children.length,
             issueCount: subtreeIssueCount(node.path),
             hasIncorrectNesting: hasIncorrectNestingInSubtree(node.path),
+            isFocused: focusPath === node.path,
             onAdd: () => onAdd(node.path),
             onDelete: () => onDelete(node.path),
           },
@@ -385,6 +393,7 @@ function buildFlowGraph(
             refDiffers,
             issue,
             isResolved,
+            isFocused: focusPath === node.path,
             onEdit,
             onDelete,
           },
@@ -415,11 +424,23 @@ type JsonTreeEditorProps = {
   showReference: boolean;
   issues: AnalysisIssue[];
   resolvedIssueIds: Set<string>;
+  focusPath?: string | null;
   onUpdateEntry: (path: string, value: string) => void;
   onAddEntry: (path: string, value: string) => void;
   onDeleteEntry: (path: string) => void;
   onFixIncorrectNesting: (issue: AnalysisIssue) => void;
 };
+
+function FitViewEffect({ focusPath }: { focusPath?: string | null }) {
+  const { fitView } = useReactFlow();
+  const prevRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusPath || focusPath === prevRef.current) return;
+    prevRef.current = focusPath;
+    void fitView({ nodes: [{ id: `n::${focusPath}` }], duration: 500, padding: 0.6 });
+  }, [focusPath, fitView]);
+  return null;
+}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -429,6 +450,7 @@ export function JsonTreeEditor({
   showReference,
   issues,
   resolvedIssueIds,
+  focusPath,
   onUpdateEntry,
   onAddEntry,
   onDeleteEntry,
@@ -496,12 +518,13 @@ export function JsonTreeEditor({
       showReference,
       issueByPath,
       resolvedIssueIds,
+      focusPath ?? null,
       onEditCallback,
       onDeleteCallback,
       onAddCallback,
     );
     return { nodes: applyDagreLayout(rawNodes, rawEdges, showReference), edges: rawEdges };
-  }, [entries, refMap, showReference, issueByPath, resolvedIssueIds, onEditCallback, onDeleteCallback, onAddCallback]);
+  }, [entries, refMap, showReference, issueByPath, resolvedIssueIds, focusPath, onEditCallback, onDeleteCallback, onAddCallback]);
 
   const saveEdit = () => {
     if (!editing) return;
@@ -543,6 +566,7 @@ export function JsonTreeEditor({
           maxZoom={2}
           proOptions={{ hideAttribution: true }}
         >
+          <FitViewEffect focusPath={focusPath} />
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#e4e4e7" />
           <Controls showInteractive={false} />
           <MiniMap

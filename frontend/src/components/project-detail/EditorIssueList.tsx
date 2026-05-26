@@ -1,11 +1,11 @@
-import { CheckCircle2, EyeOff } from 'lucide-react';
-import { useState } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import type { AnalysisIssue, IssueType } from '../../lib/types';
 
 type EditorIssueListProps = {
   issues: AnalysisIssue[];
   activeIssueId: string | null;
   resolvedIssueIds: Set<string>;
+  hideResolved: boolean;
   languageNameById: Map<string, { name: string; code: string }>;
   onGoToIssue: (issue: AnalysisIssue) => void;
   onFixIncorrectNesting: (issue: AnalysisIssue) => void;
@@ -36,51 +36,17 @@ export function EditorIssueList({
   issues,
   activeIssueId,
   resolvedIssueIds,
+  hideResolved,
   languageNameById,
   onGoToIssue,
   onFixIncorrectNesting,
 }: EditorIssueListProps) {
-  const [hideResolved, setHideResolved] = useState(false);
-
   if (issues.length === 0) return null;
 
-  const resolvedCount = issues.filter((i) => resolvedIssueIds.has(i.id)).length;
   const visibleIssues = hideResolved ? issues.filter((i) => !resolvedIssueIds.has(i.id)) : issues;
-  const pendingCount = issues.length - resolvedCount;
 
   return (
-    <div className="mt-3 overflow-hidden rounded-lg border border-zinc-200 bg-white">
-      <div className="flex items-center justify-between border-b border-zinc-100 px-3 py-2">
-        <p className="text-xs font-semibold text-zinc-700">
-          Issues del análisis
-          <span className="ml-1.5 font-normal text-zinc-400">{issues.length}</span>
-        </p>
-        <div className="flex items-center gap-2">
-          {resolvedCount > 0 && (
-            <span className="flex items-center gap-1 text-xs text-emerald-600">
-              <CheckCircle2 size={12} />
-              {resolvedCount}/{issues.length}
-            </span>
-          )}
-          {resolvedCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setHideResolved((v) => !v)}
-              className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
-                hideResolved
-                  ? 'bg-zinc-900 text-white'
-                  : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700'
-              }`}
-              title={hideResolved ? 'Mostrar todos' : 'Ocultar resueltos'}
-            >
-              <EyeOff size={10} />
-              {hideResolved ? `${pendingCount} pendientes` : 'Ocultar resueltos'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      <ul className="max-h-[220px] divide-y divide-zinc-100 overflow-y-auto">
+    <ul className="divide-y divide-zinc-100">
         {visibleIssues.length === 0 ? (
           <li className="px-3 py-3 text-center text-xs text-emerald-600">
             <CheckCircle2 size={13} className="mx-auto mb-1" />
@@ -142,6 +108,5 @@ export function EditorIssueList({
           })
         )}
       </ul>
-    </div>
   );
 }

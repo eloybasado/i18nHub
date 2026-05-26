@@ -2,10 +2,12 @@ import {
   Archive,
   Bot,
   Braces,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
   Download,
+  EyeOff,
   FilePenLine,
   FileSearch,
   Files,
@@ -229,56 +231,76 @@ function IssuesBadge({
   onGoToIssue,
   onFixIncorrectNesting,
 }: IssuesBadgeProps) {
+  const MIN_W = 260;
+  const MIN_H = 180;
+  const DEFAULT_W = 320;
+  const DEFAULT_H = 360;
+
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const [size, setSize] = useState({ w: DEFAULT_W, h: DEFAULT_H });
+  const [hideResolved, setHideResolved] = useState(false);
   const badgeRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const resizeState = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);
   const resolvedCount = sortedIssues.filter((i) => resolvedIssueIds.has(i.id)).length;
   const pending = sortedIssues.length - resolvedCount;
 
-  const clamp = (x: number, y: number): { x: number; y: number } => {
-    const w = panelRef.current?.offsetWidth ?? 288;
-    const h = panelRef.current?.offsetHeight ?? 300;
-    return {
-      x: Math.max(0, Math.min(x, window.innerWidth - w)),
-      y: Math.max(0, Math.min(y, window.innerHeight - h)),
-    };
-  };
+  const clampPos = (x: number, y: number, w = size.w, h = size.h) => ({
+    x: Math.max(0, Math.min(x, window.innerWidth - w)),
+    y: Math.max(0, Math.min(y, window.innerHeight - h)),
+  });
 
   const handleToggle = () => {
-    if (open) {
-      setOpen(false);
-      return;
-    }
+    if (open) { setOpen(false); return; }
     if (!pos && badgeRef.current) {
       const rect = badgeRef.current.getBoundingClientRect();
-      setPos(clamp(rect.left, rect.bottom + 8));
+      setPos(clampPos(rect.left, rect.bottom + 8));
     }
     setOpen(true);
   };
 
   useEffect(() => {
     if (!open) return;
-    const onResize = () => setPos((prev) => prev ? clamp(prev.x, prev.y) : prev);
+    const onResize = () => setPos((prev) => prev ? clampPos(prev.x, prev.y) : prev);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [open]);
+  }, [open, size]);
 
   const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!pos) return;
     e.preventDefault();
     dragState.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
-
     const onMove = (ev: MouseEvent) => {
       if (!dragState.current) return;
-      setPos(clamp(
+      setPos(clampPos(
         dragState.current.origX + ev.clientX - dragState.current.startX,
         dragState.current.origY + ev.clientY - dragState.current.startY,
       ));
     };
     const onUp = () => {
       dragState.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  const handleResizeStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeState.current = { startX: e.clientX, startY: e.clientY, origW: size.w, origH: size.h };
+    const onMove = (ev: MouseEvent) => {
+      if (!resizeState.current) return;
+      const newW = Math.max(MIN_W, resizeState.current.origW + ev.clientX - resizeState.current.startX);
+      const newH = Math.max(MIN_H, resizeState.current.origH + ev.clientY - resizeState.current.startY);
+      setSize({ w: newW, h: newH });
+      setPos((prev) => prev ? clampPos(prev.x, prev.y, newW, newH) : prev);
+    };
+    const onUp = () => {
+      resizeState.current = null;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
     };
@@ -306,18 +328,40 @@ function IssuesBadge({
       {open && pos && (
         <div
           ref={panelRef}
-          className="fixed z-50 w-72 rounded-xl border border-zinc-200 bg-white shadow-xl"
-          style={{ left: pos.x, top: pos.y }}
+          className="fixed z-50 flex flex-col rounded-xl border border-zinc-200 bg-white shadow-xl overflow-hidden"
+          style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
         >
+          {/* Header / drag handle */}
           <div
-            className="flex cursor-grab items-center justify-between border-b border-zinc-100 px-3 py-2 active:cursor-grabbing"
+            className="flex shrink-0 cursor-grab items-center justify-between border-b border-zinc-100 px-3 py-2 active:cursor-grabbing"
             onMouseDown={handleDragStart}
           >
-            <span className="text-xs font-semibold text-zinc-700 select-none">Issues del archivo</span>
+            <div className="flex items-center gap-2 select-none">
+              {resolvedCount > 0 && (
+                <span className="flex items-center gap-1 text-xs text-emerald-600">
+                  <CheckCircle2 size={12} />
+                  {resolvedCount}/{sortedIssues.length}
+                </span>
+              )}
+              {resolvedCount > 0 && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); setHideResolved((v) => !v); }}
+                  className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+                    hideResolved ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700'
+                  }`}
+                >
+                  <EyeOff size={10} />
+                  {hideResolved ? `${pending} pendientes` : 'Ocultar resueltos'}
+                </button>
+              )}
+            </div>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 disabled={sortedIssues.findIndex((i) => i.id === activeIssueId) <= 0}
+                onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
                   const idx = sortedIssues.findIndex((i) => i.id === activeIssueId);
@@ -333,6 +377,7 @@ function IssuesBadge({
                   const idx = sortedIssues.findIndex((i) => i.id === activeIssueId);
                   return idx !== -1 && idx >= sortedIssues.length - 1;
                 })()}
+                onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
                   const idx = sortedIssues.findIndex((i) => i.id === activeIssueId);
@@ -345,6 +390,7 @@ function IssuesBadge({
               </button>
               <button
                 type="button"
+                onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => setOpen(false)}
                 className="ml-1 rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
               >
@@ -352,14 +398,30 @@ function IssuesBadge({
               </button>
             </div>
           </div>
-          <EditorIssueList
-            issues={sortedIssues}
-            activeIssueId={activeIssueId}
-            resolvedIssueIds={resolvedIssueIds}
-            languageNameById={languageNameById}
-            onGoToIssue={onGoToIssue}
-            onFixIncorrectNesting={onFixIncorrectNesting}
-          />
+
+          {/* Scrollable content */}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <EditorIssueList
+              issues={sortedIssues}
+              activeIssueId={activeIssueId}
+              resolvedIssueIds={resolvedIssueIds}
+              hideResolved={hideResolved}
+              languageNameById={languageNameById}
+              onGoToIssue={onGoToIssue}
+              onFixIncorrectNesting={onFixIncorrectNesting}
+            />
+          </div>
+
+          {/* Resize handle */}
+          <div
+            className="absolute bottom-0 right-0 h-4 w-4 cursor-se-resize"
+            onMouseDown={handleResizeStart}
+            title="Redimensionar"
+          >
+            <svg viewBox="0 0 16 16" className="h-full w-full text-zinc-300">
+              <path d="M12 4 L4 12 M16 8 L8 16 M16 12 L12 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </div>
         </div>
       )}
     </div>
@@ -433,6 +495,12 @@ export function EditorSection({
   const rawEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [rawExpanded, setRawExpanded] = useState(false);
   const [visualSearchInput, setVisualSearchInput] = useState(editorVisualQuery);
+  const [treeSearchQuery, setTreeSearchQuery] = useState('');
+  const [treeSearchOpen, setTreeSearchOpen] = useState(false);
+  const [treeFocusPath, setTreeFocusPath] = useState<string | null>(null);
+  const treeSearchRef = useRef<HTMLDivElement>(null);
+  const [rawSearchQuery, setRawSearchQuery] = useState('');
+  const [rawSearchIndex, setRawSearchIndex] = useState(0);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addPath, setAddPath] = useState('');
   const [addValue, setAddValue] = useState('');
@@ -441,6 +509,27 @@ export function EditorSection({
   const [changeFileModalOpen, setChangeFileModalOpen] = useState(false);
   const visualHighlightFocusedPathRef = useRef<string | null>(null);
   const rawHighlightInteractedRef = useRef(false);
+
+  const rawSearchMatches = (() => {
+    if (!rawSearchQuery.trim()) return [];
+    const matches: number[] = [];
+    const q = rawSearchQuery.toLowerCase();
+    const src = editorJson.toLowerCase();
+    let i = src.indexOf(q);
+    while (i !== -1) { matches.push(i); i = src.indexOf(q, i + 1); }
+    return matches;
+  })();
+
+  const jumpToRawMatch = (idx: number) => {
+    if (!rawEditorRef.current || rawSearchMatches.length === 0) return;
+    const matchIdx = ((idx % rawSearchMatches.length) + rawSearchMatches.length) % rawSearchMatches.length;
+    setRawSearchIndex(matchIdx);
+    const start = rawSearchMatches[matchIdx];
+    rawEditorRef.current.focus();
+    rawEditorRef.current.setSelectionRange(start, start + rawSearchQuery.length);
+    rawEditorRef.current.blur();
+    rawEditorRef.current.focus();
+  };
 
   const requestEditorFileChange = (fileId: string) => {
     if (fileId === editorFileId) {
@@ -765,29 +854,72 @@ export function EditorSection({
 
       {editorMode === 'TREE' ? (
         <div className="mt-3">
-          {(treeReferenceEntries && treeReferenceEntries.length > 0) || sortedIssues.length > 0 ? (
-            <div className="mb-2 flex items-center justify-end gap-2">
-              {treeReferenceEntries && treeReferenceEntries.length > 0 && (
-                <ReferenceToggle active={showReferenceOverlay} onChange={onShowReferenceOverlayChange} />
-              )}
-              {sortedIssues.length > 0 && (
-                <IssuesBadge
-                  sortedIssues={sortedIssues}
-                  activeIssueId={activeIssueId}
-                  resolvedIssueIds={resolvedIssueIds}
-                  languageNameById={languageNameById}
-                  onGoToIssue={onGoToIssue}
-                  onFixIncorrectNesting={onFixIncorrectNesting}
-                />
-              )}
+          <div className="mb-2 flex items-center gap-2">
+            {/* Autocomplete para árbol */}
+            <div className="relative min-w-0 flex-1" ref={treeSearchRef}>
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 z-10" />
+              <Input
+                className="pl-9"
+                value={treeSearchQuery}
+                onChange={(e) => { setTreeSearchQuery(e.target.value); setTreeSearchOpen(true); }}
+                onFocus={() => setTreeSearchOpen(true)}
+                onBlur={() => setTimeout(() => setTreeSearchOpen(false), 150)}
+                onKeyDown={(e) => { if (e.key === 'Escape') { setTreeSearchOpen(false); setTreeSearchQuery(''); } }}
+                placeholder="Ir a clave..."
+                disabled={!editorFileId}
+              />
+              {treeSearchOpen && treeSearchQuery.trim() && (() => {
+                const q = treeSearchQuery.toLowerCase();
+                const matches = editorVisualEntries.filter(
+                  (e) => e.path.toLowerCase().includes(q) || e.value.toLowerCase().includes(q)
+                ).slice(0, 12);
+                if (matches.length === 0) return null;
+                return (
+                  <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-lg">
+                    {matches.map((entry) => (
+                      <li key={entry.path}>
+                        <button
+                          type="button"
+                          className="flex w-full flex-col gap-0.5 px-3 py-2 text-left hover:bg-zinc-50"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setTreeFocusPath(entry.path);
+                            setTreeSearchQuery(entry.path);
+                            setTreeSearchOpen(false);
+                          }}
+                        >
+                          <span className="font-mono text-xs font-semibold text-zinc-800">{entry.path}</span>
+                          {entry.value && (
+                            <span className="truncate text-xs text-zinc-400">{entry.value}</span>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
             </div>
-          ) : null}
+            {treeReferenceEntries && treeReferenceEntries.length > 0 && (
+              <ReferenceToggle active={showReferenceOverlay} onChange={onShowReferenceOverlayChange} />
+            )}
+            {sortedIssues.length > 0 && (
+              <IssuesBadge
+                sortedIssues={sortedIssues}
+                activeIssueId={activeIssueId}
+                resolvedIssueIds={resolvedIssueIds}
+                languageNameById={languageNameById}
+                onGoToIssue={onGoToIssue}
+                onFixIncorrectNesting={onFixIncorrectNesting}
+              />
+            )}
+          </div>
           <JsonTreeEditor
             entries={editorVisualEntries}
             referenceEntries={treeReferenceEntries}
             showReference={showReferenceOverlay}
             issues={currentFileIssues}
             resolvedIssueIds={resolvedIssueIds}
+            focusPath={treeFocusPath}
             onUpdateEntry={onEditorVisualEntryChange}
             onAddEntry={onAddEntry}
             onDeleteEntry={onDeleteEntry}
@@ -856,6 +988,63 @@ export function EditorSection({
           </div>
         ) : (
           <div className="mt-3">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <Input
+                  className="pl-9 pr-24"
+                  value={rawSearchQuery}
+                  onChange={(e) => { setRawSearchQuery(e.target.value); setRawSearchIndex(0); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); jumpToRawMatch(e.shiftKey ? rawSearchIndex - 1 : rawSearchIndex + 1); }
+                  }}
+                  placeholder="Buscar en el JSON..."
+                  disabled={!editorFileId}
+                />
+                {rawSearchMatches.length > 0 && (
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">
+                    {rawSearchIndex + 1}/{rawSearchMatches.length}
+                  </span>
+                )}
+                {rawSearchQuery && rawSearchMatches.length === 0 && (
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-red-400">
+                    Sin resultados
+                  </span>
+                )}
+              </div>
+              {rawSearchMatches.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => jumpToRawMatch(rawSearchIndex - 1)}
+                    className="rounded p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+                    title="Anterior (Shift+Enter)"
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => jumpToRawMatch(rawSearchIndex + 1)}
+                    className="rounded p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+                    title="Siguiente (Enter)"
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setRawExpanded(true)}
+                disabled={!editorFileId}
+                className="shrink-0"
+              >
+                <Maximize2 size={14} className="mr-1" />
+                Ampliado
+              </Button>
+            </div>
+
             <textarea
               ref={rawEditorRef}
               className={`w-full rounded-lg border bg-white p-3 font-mono text-sm text-zinc-900 outline-none focus:border-zinc-500 min-h-[320px] ${
@@ -877,19 +1066,6 @@ export function EditorSection({
               placeholder="Abre un archivo para empezar a editar su JSON..."
               disabled={!editorFileId}
             />
-
-            <div className="mt-2 text-right">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setRawExpanded(true)}
-                disabled={!editorFileId}
-              >
-                <Maximize2 size={14} className="mr-1" />
-                Modo ampliado
-              </Button>
-            </div>
           </div>
         )
       ) : (
