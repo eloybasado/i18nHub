@@ -2,17 +2,17 @@
 
 Plataforma web open source para gestionar, analizar y mejorar traducciones JSON en proyectos frontend.
 
-🌐 **Demo pública:** [https://i18nhub.vercel.app](https://i18nhub.vercel.app) · **Licencia:** GPL-3.0
+🌐 **Demo pública:** [https://i18nhub.vercel.app](https://i18nhub.vercel.app) · **Licencia:** GPL-3.0 / Comercial
 
 ---
 
 ## Stack
 
-| Capa | Tecnologías |
-|------|-------------|
+| Capa     | Tecnologías                               |
+| -------- | ----------------------------------------- |
 | Frontend | React 19 · Vite · TailwindCSS · shadcn/ui |
-| Backend | NestJS · Prisma · PostgreSQL |
-| IA | Groq API |
+| Backend  | NestJS · Prisma · PostgreSQL              |
+| IA       | Groq API                                  |
 
 ## Estructura del monorepo
 
@@ -78,4 +78,6 @@ VITE_API_URL="http://localhost:3000"
 
 ## Licencia
 
-[GPL-3.0](LICENSE)
+i18nHub se distribuye bajo licencia [GPL-3.0](LICENSE) para uso open source.
+
+Para uso comercial o integración en productos propietarios, contacta con el autor para obtener una licencia comercial.
