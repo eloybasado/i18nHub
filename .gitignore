@@ -40,4 +40,5 @@ tmp/
 
 # anotation files
 /*.md
+!/README.md
 /sample-files/
