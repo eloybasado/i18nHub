@@ -92,9 +92,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}) 
 
   if (!response.ok) {
     if (response.status === 401 && options.auth) {
-      session.clear();
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      // Only clear and redirect if refresh already confirmed the tokens are invalid.
+      // If tokens are still present, the refresh endpoint failed transiently — don't log the user out.
+      if (!session.getRefreshToken()) {
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
 
