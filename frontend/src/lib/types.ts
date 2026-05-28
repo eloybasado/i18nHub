@@ -74,6 +74,12 @@ export type ProjectMember = {
   isOwner: boolean;
 };
 
+export type FileGroup = {
+  id: string;
+  name: string;
+  _count: { translationFiles: number };
+};
+
 export type Language = {
   id: string;
   projectId: string;

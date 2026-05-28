@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp, FilePenLine, FileUp, FolderTree, Info, Trash2 } from 'lucide-react';
 import type { ChangeEvent, DragEvent } from 'react';
 import { useMemo, useState } from 'react';
-import type { I18nPattern, TranslationFileSummary } from '../../lib/types';
+import type { FileGroup, I18nPattern, TranslationFileSummary } from '../../lib/types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select } from '../ui/select';
@@ -30,6 +30,7 @@ type UploadSectionProps = {
   isDraggingFiles: boolean;
   ingestFiles: IngestFileItem[];
   translationFiles: TranslationFileSummary[];
+  fileGroups: FileGroup[];
   loading: boolean;
   onDropFiles: (event: DragEvent<HTMLDivElement>) => void | Promise<void>;
   onDragOverFiles: (event: DragEvent<HTMLDivElement>) => void;
@@ -39,6 +40,7 @@ type UploadSectionProps = {
   onGoToLanguages: () => void;
   onEditFile: (fileId: string) => void | Promise<void>;
   onDeleteFile: (file: TranslationFileSummary) => void;
+  onDeleteFileGroup: (fileGroupId: string) => void;
 };
 
 const parseUploadFileMeta = (pattern: I18nPattern | undefined, rawPath: string): UploadFileMeta => {
@@ -93,6 +95,7 @@ export function UploadSection({
   isDraggingFiles,
   ingestFiles,
   translationFiles,
+  fileGroups,
   loading,
   onDropFiles,
   onDragOverFiles,
@@ -102,11 +105,17 @@ export function UploadSection({
   onGoToLanguages,
   onEditFile,
   onDeleteFile,
+  onDeleteFileGroup,
 }: UploadSectionProps) {
   const [uploadGroupingMode, setUploadGroupingMode] = useState<UploadGroupingMode>('LANGUAGE');
   const [uploadSearch, setUploadSearch] = useState('');
   const [collapsedIngestBuckets, setCollapsedIngestBuckets] = useState<Record<string, boolean>>({});
   const [collapsedStoredBuckets, setCollapsedStoredBuckets] = useState<Record<string, boolean>>({});
+
+  const emptyFileGroups = useMemo(
+    () => fileGroups.filter((g) => g._count.translationFiles === 0),
+    [fileGroups],
+  );
 
   const filteredIngestFiles = useMemo(() => {
     const normalizedQuery = uploadSearch.trim().toLowerCase();
@@ -347,6 +356,36 @@ export function UploadSection({
       </div>
 
       <h3 className="mt-6 text-sm font-semibold text-zinc-900">Archivos ya cargados</h3>
+
+      {emptyFileGroups.length > 0 && (
+        <div className="mt-4">
+          <h4 className="text-sm font-semibold text-zinc-700">Grupos sin archivos</h4>
+          <p className="mt-1 text-xs text-zinc-500">
+            Estos grupos existen en la base de datos pero no tienen archivos. Puedes eliminarlos para evitar
+            problemas en el análisis.
+          </p>
+          <ul className="mt-2 space-y-1">
+            {emptyFileGroups.map((group) => (
+              <li key={group.id} className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                <span className="flex items-center gap-2 text-sm text-amber-800">
+                  <FolderTree size={14} />
+                  {group.name}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 border-red-300 px-2 text-xs text-red-800 hover:bg-red-100 hover:text-red-900"
+                  onClick={() => onDeleteFileGroup(group.id)}
+                >
+                  <Trash2 size={12} className="mr-1" />
+                  Eliminar
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {translationFiles.length === 0 ? (
         <p className="mt-3 text-sm text-zinc-500">No hay archivos cargados en el proyecto.</p>

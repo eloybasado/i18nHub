@@ -847,6 +847,34 @@ export class TranslationFilesService {
     return value as Prisma.InputJsonValue;
   }
 
+  async listFileGroups(projectId: string) {
+    await this.ensureProjectExists(projectId);
+
+    return this.prisma.fileGroup.findMany({
+      where: { projectId },
+      select: {
+        id: true,
+        name: true,
+        _count: { select: { translationFiles: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async deleteFileGroup(projectId: string, fileGroupId: string) {
+    const fileGroup = await this.prisma.fileGroup.findFirst({
+      where: { id: fileGroupId, projectId },
+      select: { id: true },
+    });
+
+    if (!fileGroup) {
+      throw new NotFoundException('File group not found in project');
+    }
+
+    await this.prisma.fileGroup.delete({ where: { id: fileGroupId } });
+    return { deleted: true };
+  }
+
   private async ensureProjectExists(projectId: string): Promise<void> {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },

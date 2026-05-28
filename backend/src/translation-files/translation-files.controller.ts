@@ -28,6 +28,21 @@ export class TranslationFilesController {
     private readonly translationFilesService: TranslationFilesService,
   ) {}
 
+  @Get('file-groups')
+  @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR, ProjectRole.VIEWER)
+  listFileGroups(@Param('projectId', new ParseUUIDPipe()) projectId: string) {
+    return this.translationFilesService.listFileGroups(projectId);
+  }
+
+  @Delete('file-groups/:fileGroupId')
+  @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR)
+  deleteFileGroup(
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
+    @Param('fileGroupId', new ParseUUIDPipe()) fileGroupId: string,
+  ) {
+    return this.translationFilesService.deleteFileGroup(projectId, fileGroupId);
+  }
+
   @Post('ingest')
   @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR)
   ingest(

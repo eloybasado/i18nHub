@@ -43,6 +43,7 @@ import type {
   AiGlossaryEntry,
   AnalysisIssue,
   AnalysisReport,
+  FileGroup,
   IngestResponse,
   IssueType,
   Language,
@@ -427,6 +428,7 @@ export function ProjectDetailPage() {
     Record<string, LanguageCoverageItem>
   >({});
   const [translationFiles, setTranslationFiles] = useState<TranslationFileSummary[]>([]);
+  const [fileGroups, setFileGroups] = useState<FileGroup[]>([]);
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [memberEmail, setMemberEmail] = useState('');
@@ -707,12 +709,13 @@ export function ProjectDetailPage() {
     if (!projectId) return;
 
     try {
-      const [projectData, membersData, languagesData, filesData, aiContextSettings, languageCoverage] =
+      const [projectData, membersData, languagesData, filesData, fileGroupsData, aiContextSettings, languageCoverage] =
         await Promise.all([
           apiRequest<Project>(`/projects/${projectId}`, { auth: true }),
           apiRequest<ProjectMember[]>(`/projects/${projectId}/members`, { auth: true }),
           apiRequest<Language[]>(`/projects/${projectId}/languages`, { auth: true }),
           apiRequest<TranslationFileSummary[]>(`/projects/${projectId}/translation-files`, { auth: true }),
+          apiRequest<FileGroup[]>(`/projects/${projectId}/translation-files/file-groups`, { auth: true }),
           apiRequest<AiContextSettingsResponse>(`/projects/${projectId}/ai/context`, {
             auth: true,
           }).catch(() => ({
@@ -738,6 +741,7 @@ export function ProjectDetailPage() {
         Object.fromEntries(languageCoverage.languages.map((item) => [item.languageId, item])),
       );
       setTranslationFiles(filesData);
+      setFileGroups(fileGroupsData);
       setAiContext(aiContextSettings.context);
       setAiGlossaryEntries(glossaryEntries);
       setAiContextSavedSignature(savedSignature);
@@ -1141,6 +1145,21 @@ export function ProjectDetailPage() {
       await load();
     } catch {
       notify.error('No se pudo eliminar el archivo');
+    }
+  };
+
+  const deleteFileGroup = async (fileGroupId: string) => {
+    if (!projectId) return;
+
+    try {
+      await apiRequest(`/projects/${projectId}/translation-files/file-groups/${fileGroupId}`, {
+        method: 'DELETE',
+        auth: true,
+      });
+      notify.success('Grupo eliminado');
+      setFileGroups((prev) => prev.filter((g) => g.id !== fileGroupId));
+    } catch {
+      notify.error('No se pudo eliminar el grupo');
     }
   };
 
@@ -2460,6 +2479,7 @@ export function ProjectDetailPage() {
                 isDraggingFiles={isDraggingFiles}
                 ingestFiles={ingestFiles}
                 translationFiles={translationFiles}
+                fileGroups={fileGroups}
                 loading={loading}
                 onDropFiles={onDropFiles}
                 onDragOverFiles={onDragOverFiles}
@@ -2471,6 +2491,7 @@ export function ProjectDetailPage() {
                   void openEditorForFile(fileId);
                 }}
                 onDeleteFile={setFileToDelete}
+                onDeleteFileGroup={(id) => void deleteFileGroup(id)}
               />
             </div>
 
