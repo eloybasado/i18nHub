@@ -258,13 +258,13 @@ export function UploadSection({
 
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {/* Drop zone */}
-        <label
-          className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-5 text-center transition-colors ${
+        <div
+          className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-5 text-center transition-colors ${
             !uploadEnabled
               ? 'cursor-not-allowed border-zinc-200 bg-zinc-100/70 text-zinc-400'
               : isDraggingFiles
                 ? 'border-zinc-700 bg-zinc-50 text-zinc-800'
-                : 'border-zinc-300 bg-zinc-50/40 text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50'
+                : 'border-zinc-300 bg-zinc-50/40 text-zinc-600'
           }`}
           onDrop={dropzoneInteractive ? onDropFiles : undefined}
           onDragOver={dropzoneInteractive ? onDragOverFiles : undefined}
@@ -275,7 +275,7 @@ export function UploadSection({
             <p className="text-sm font-semibold">Arrastrar archivos</p>
             <p className="mt-0.5 text-xs">Suelta archivos .json aquí</p>
           </div>
-        </label>
+        </div>
 
         {/* Files picker */}
         <label
