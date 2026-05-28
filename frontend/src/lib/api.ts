@@ -31,7 +31,9 @@ async function refreshAccessToken(): Promise<string | null> {
   });
 
   if (!response.ok) {
-    session.clear();
+    if (response.status === 401) {
+      session.clear();
+    }
     return null;
   }
 
