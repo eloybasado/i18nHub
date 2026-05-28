@@ -473,6 +473,7 @@ export function ProjectDetailPage() {
   const [aiContextSaving, setAiContextSaving] = useState(false);
   const [aiContextSavedSignature, setAiContextSavedSignature] = useState('');
   const [editorBusy, setEditorBusy] = useState(false);
+  const [editorAiTranslationBanner, setEditorAiTranslationBanner] = useState<{ translatedKeys: number; totalKeys: number; languageName: string } | null>(null);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [expandedIssueId, setExpandedIssueId] = useState<string | null>(null);
   const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
@@ -1186,6 +1187,10 @@ export function ProjectDetailPage() {
       });
     }
 
+    if (!options?.skipNotify) {
+      setEditorAiTranslationBanner(null);
+    }
+
     setEditorBusy(true);
     try {
       const file = await apiRequest<TranslationFileDetail>(
@@ -1512,9 +1517,11 @@ export function ProjectDetailPage() {
         },
       );
 
-      notify.success(
-        `Traducción IA completada: ${suggestionsByKey.size}/${sourceEntries.length} claves en ${updated.filename}`,
-      );
+      setEditorAiTranslationBanner({
+        translatedKeys: suggestionsByKey.size,
+        totalKeys: sourceEntries.length,
+        languageName: targetLanguage.name,
+      });
 
       await load();
       await openEditorForFile(updated.id, { skipNotify: true });
@@ -2586,6 +2593,8 @@ export function ProjectDetailPage() {
                 onDeleteEntry={deleteEntry}
                 onFixIncorrectNesting={fixIncorrectNestingIssue}
                 editorHasChanges={editorHasChanges}
+                aiTranslationBanner={editorAiTranslationBanner}
+                onDismissAiTranslationBanner={() => setEditorAiTranslationBanner(null)}
               />
             </div>
 

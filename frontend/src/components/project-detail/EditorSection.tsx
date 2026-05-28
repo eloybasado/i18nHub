@@ -21,6 +21,7 @@ import {
   SearchCheck,
   Trash2,
   TriangleAlert,
+  X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { AnalysisIssue, Language, TranslationFileSummary, TranslationFileVersionSummary } from '../../lib/types';
@@ -193,6 +194,8 @@ type EditorSectionProps = {
   onDeleteEntry: (path: string) => void;
   onFixIncorrectNesting: (issue: AnalysisIssue) => void;
   editorHasChanges: boolean;
+  aiTranslationBanner?: { translatedKeys: number; totalKeys: number; languageName: string } | null;
+  onDismissAiTranslationBanner?: () => void;
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -306,6 +309,8 @@ export function EditorSection({
   onDeleteEntry,
   onFixIncorrectNesting,
   editorHasChanges,
+  aiTranslationBanner,
+  onDismissAiTranslationBanner,
 }: EditorSectionProps) {
   const rawEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [rawExpanded, setRawExpanded] = useState(false);
@@ -541,6 +546,29 @@ export function EditorSection({
       <p className="mt-2 text-base text-zinc-600">
         Abre un archivo cargado, edita su JSON y guarda cambios para corregir issues o preparar nuevas traducciones.
       </p>
+
+      {aiTranslationBanner && (
+        <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+          <div className="flex items-start gap-2">
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-green-600" />
+            <div className="text-sm text-green-800">
+              <p className="font-semibold">Traducción IA completada — {aiTranslationBanner.languageName}</p>
+              <p className="mt-0.5 text-green-700">
+                {aiTranslationBanner.translatedKeys} de {aiTranslationBanner.totalKeys} claves traducidas. El editor
+                ya muestra el archivo resultante; puedes revisarlo y guardar los cambios si quieres ajustar algo.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-label="Cerrar aviso"
+            onClick={onDismissAiTranslationBanner}
+            className="shrink-0 rounded p-0.5 text-green-600 hover:bg-green-100"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
