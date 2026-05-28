@@ -210,7 +210,7 @@ export function QualityReviewSection({
 
           appliedCount += Object.keys(updates).length;
         } catch (error) {
-          notify.error(`Error al guardar archivo ${fileId}`);
+          notify.error(`Error al guardar ${fileId}`);
           console.error('Error applying to file:', error);
         }
       }

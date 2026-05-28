@@ -336,7 +336,10 @@ export function EditorSection({
   });
 
   const handleIssuesBadgeToggle = (anchorRect: DOMRect) => {
-    if (issuesPanelOpen) { setIssuesPanelOpen(false); return; }
+    if (issuesPanelOpen) {
+      setIssuesPanelOpen(false);
+      return;
+    }
     if (!issuesPanelPos) {
       setIssuesPanelPos(clampPanelPos(anchorRect.left, anchorRect.bottom + 8));
     }
@@ -345,7 +348,7 @@ export function EditorSection({
 
   useEffect(() => {
     if (!issuesPanelOpen) return;
-    const onResize = () => setIssuesPanelPos((prev) => prev ? clampPanelPos(prev.x, prev.y) : prev);
+    const onResize = () => setIssuesPanelPos((prev) => (prev ? clampPanelPos(prev.x, prev.y) : prev));
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [issuesPanelOpen, issuesPanelSize]);
@@ -353,13 +356,20 @@ export function EditorSection({
   const handleIssuesDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!issuesPanelPos) return;
     e.preventDefault();
-    issuesDragState.current = { startX: e.clientX, startY: e.clientY, origX: issuesPanelPos.x, origY: issuesPanelPos.y };
+    issuesDragState.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: issuesPanelPos.x,
+      origY: issuesPanelPos.y,
+    };
     const onMove = (ev: MouseEvent) => {
       if (!issuesDragState.current) return;
-      setIssuesPanelPos(clampPanelPos(
-        issuesDragState.current.origX + ev.clientX - issuesDragState.current.startX,
-        issuesDragState.current.origY + ev.clientY - issuesDragState.current.startY,
-      ));
+      setIssuesPanelPos(
+        clampPanelPos(
+          issuesDragState.current.origX + ev.clientX - issuesDragState.current.startX,
+          issuesDragState.current.origY + ev.clientY - issuesDragState.current.startY,
+        ),
+      );
     };
     const onUp = () => {
       issuesDragState.current = null;
@@ -373,13 +383,24 @@ export function EditorSection({
   const handleIssuesResizeStart = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    issuesResizeState.current = { startX: e.clientX, startY: e.clientY, origW: issuesPanelSize.w, origH: issuesPanelSize.h };
+    issuesResizeState.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origW: issuesPanelSize.w,
+      origH: issuesPanelSize.h,
+    };
     const onMove = (ev: MouseEvent) => {
       if (!issuesResizeState.current) return;
-      const newW = Math.max(PANEL_MIN_W, issuesResizeState.current.origW + ev.clientX - issuesResizeState.current.startX);
-      const newH = Math.max(PANEL_MIN_H, issuesResizeState.current.origH + ev.clientY - issuesResizeState.current.startY);
+      const newW = Math.max(
+        PANEL_MIN_W,
+        issuesResizeState.current.origW + ev.clientX - issuesResizeState.current.startX,
+      );
+      const newH = Math.max(
+        PANEL_MIN_H,
+        issuesResizeState.current.origH + ev.clientY - issuesResizeState.current.startY,
+      );
       setIssuesPanelSize({ w: newW, h: newH });
-      setIssuesPanelPos((prev) => prev ? clampPanelPos(prev.x, prev.y, newW, newH) : prev);
+      setIssuesPanelPos((prev) => (prev ? clampPanelPos(prev.x, prev.y, newW, newH) : prev));
     };
     const onUp = () => {
       issuesResizeState.current = null;
@@ -406,7 +427,10 @@ export function EditorSection({
     const q = rawSearchQuery.toLowerCase();
     const src = editorJson.toLowerCase();
     let i = src.indexOf(q);
-    while (i !== -1) { matches.push(i); i = src.indexOf(q, i + 1); }
+    while (i !== -1) {
+      matches.push(i);
+      i = src.indexOf(q, i + 1);
+    }
     return matches;
   })();
 
@@ -634,12 +658,12 @@ export function EditorSection({
               <CircleHelp size={15} />
             </button>
             <div className="pointer-events-none absolute right-0 top-10 z-20 w-72 rounded-lg border border-zinc-200 bg-white p-3 text-sm text-zinc-700 opacity-0 shadow-md transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-              Exportar JSON descarga solo el archivo que estás editando. Exportar ZIP descarga todos los archivos del proyecto.
+              Exportar JSON descarga solo el archivo que estás editando. Exportar ZIP descarga todos los archivos del
+              proyecto.
             </div>
           </div>
         </div>
       </div>
-
 
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <div className="min-w-[220px] flex-1">
@@ -711,7 +735,7 @@ export function EditorSection({
             disabled={!editorFileId || editorBusy || !editorHasChanges}
             className={`${editorHasChanges ? 'save-dirty-btn' : ''} metallic-shine-btn border-zinc-950 shadow-xl`}
           >
-            {editorBusy ? 'Guardando...' : 'Guardar archivo'}
+            {editorBusy ? 'Guardando...' : 'Guardar'}
           </Button>
         </div>
       ) : null}
@@ -747,47 +771,58 @@ export function EditorSection({
           <div className="mb-2 flex items-center gap-2">
             {/* Autocomplete para árbol */}
             <div className="relative min-w-0 flex-1" ref={treeSearchRef}>
-              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 z-10" />
+              <Search
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 z-10"
+              />
               <Input
                 className="pl-9"
                 value={treeSearchQuery}
-                onChange={(e) => { setTreeSearchQuery(e.target.value); setTreeSearchOpen(true); }}
+                onChange={(e) => {
+                  setTreeSearchQuery(e.target.value);
+                  setTreeSearchOpen(true);
+                }}
                 onFocus={() => setTreeSearchOpen(true)}
                 onBlur={() => setTimeout(() => setTreeSearchOpen(false), 150)}
-                onKeyDown={(e) => { if (e.key === 'Escape') { setTreeSearchOpen(false); setTreeSearchQuery(''); } }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setTreeSearchOpen(false);
+                    setTreeSearchQuery('');
+                  }
+                }}
                 placeholder="Ir a clave..."
                 disabled={!editorFileId}
               />
-              {treeSearchOpen && treeSearchQuery.trim() && (() => {
-                const q = treeSearchQuery.toLowerCase();
-                const matches = editorVisualEntries.filter(
-                  (e) => e.path.toLowerCase().includes(q) || e.value.toLowerCase().includes(q)
-                ).slice(0, 12);
-                if (matches.length === 0) return null;
-                return (
-                  <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-lg">
-                    {matches.map((entry) => (
-                      <li key={entry.path}>
-                        <button
-                          type="button"
-                          className="flex w-full flex-col gap-0.5 px-3 py-2 text-left hover:bg-zinc-50"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            setTreeFocusPath(entry.path);
-                            setTreeSearchQuery(entry.path);
-                            setTreeSearchOpen(false);
-                          }}
-                        >
-                          <span className="font-mono text-xs font-semibold text-zinc-800">{entry.path}</span>
-                          {entry.value && (
-                            <span className="truncate text-xs text-zinc-400">{entry.value}</span>
-                          )}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                );
-              })()}
+              {treeSearchOpen &&
+                treeSearchQuery.trim() &&
+                (() => {
+                  const q = treeSearchQuery.toLowerCase();
+                  const matches = editorVisualEntries
+                    .filter((e) => e.path.toLowerCase().includes(q) || e.value.toLowerCase().includes(q))
+                    .slice(0, 12);
+                  if (matches.length === 0) return null;
+                  return (
+                    <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-lg">
+                      {matches.map((entry) => (
+                        <li key={entry.path}>
+                          <button
+                            type="button"
+                            className="flex w-full flex-col gap-0.5 px-3 py-2 text-left hover:bg-zinc-50"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setTreeFocusPath(entry.path);
+                              setTreeSearchQuery(entry.path);
+                              setTreeSearchOpen(false);
+                            }}
+                          >
+                            <span className="font-mono text-xs font-semibold text-zinc-800">{entry.path}</span>
+                            {entry.value && <span className="truncate text-xs text-zinc-400">{entry.value}</span>}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                })()}
             </div>
             {treeReferenceEntries && treeReferenceEntries.length > 0 && (
               <ReferenceToggle active={showReferenceOverlay} onChange={onShowReferenceOverlayChange} />
@@ -877,13 +912,22 @@ export function EditorSection({
           <div className="mt-3">
             <div className="mb-2 flex items-center gap-2">
               <div className="relative min-w-0 flex-1">
-                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <Search
+                  size={15}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+                />
                 <Input
                   className="pl-9 pr-24"
                   value={rawSearchQuery}
-                  onChange={(e) => { setRawSearchQuery(e.target.value); setRawSearchIndex(0); }}
+                  onChange={(e) => {
+                    setRawSearchQuery(e.target.value);
+                    setRawSearchIndex(0);
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); jumpToRawMatch(e.shiftKey ? rawSearchIndex - 1 : rawSearchIndex + 1); }
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      jumpToRawMatch(e.shiftKey ? rawSearchIndex - 1 : rawSearchIndex + 1);
+                    }
                   }}
                   placeholder="Buscar en el JSON..."
                   disabled={!editorFileId}
@@ -993,7 +1037,16 @@ export function EditorSection({
             )}
 
             {editorFileId && !showAddForm && (
-              <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => { setAddPath(visualSearchInput.trim()); setShowAddForm(true); }}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => {
+                  setAddPath(visualSearchInput.trim());
+                  setShowAddForm(true);
+                }}
+              >
                 <Plus size={13} className="mr-1" />
                 Añadir clave
               </Button>
@@ -1079,7 +1132,9 @@ export function EditorSection({
                         </span>
                         <div className="flex items-center gap-1.5">
                           {entryIssue && (
-                            <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${VISUAL_ISSUE_BADGE_CLASS[entryIssue.type]}`}>
+                            <span
+                              className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${VISUAL_ISSUE_BADGE_CLASS[entryIssue.type]}`}
+                            >
                               {VISUAL_ISSUE_LABEL[entryIssue.type]}
                             </span>
                           )}
@@ -1125,7 +1180,6 @@ export function EditorSection({
           </div>
         </div>
       )}
-
 
       <Dialog open={Boolean(deletingPath)} onOpenChange={(open: boolean) => !open && setDeletingPath(null)}>
         <DialogContent>
@@ -1180,9 +1234,14 @@ export function EditorSection({
                     <button
                       type="button"
                       onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => { e.stopPropagation(); setIssuesHideResolved((v) => !v); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIssuesHideResolved((v) => !v);
+                      }}
                       className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
-                        issuesHideResolved ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700'
+                        issuesHideResolved
+                          ? 'bg-zinc-900 text-white'
+                          : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700'
                       }`}
                     >
                       <EyeOff size={10} />
@@ -1246,12 +1305,14 @@ export function EditorSection({
             />
           </div>
 
-          <div
-            className="absolute bottom-0 right-0 h-4 w-4 cursor-se-resize"
-            onMouseDown={handleIssuesResizeStart}
-          >
+          <div className="absolute bottom-0 right-0 h-4 w-4 cursor-se-resize" onMouseDown={handleIssuesResizeStart}>
             <svg viewBox="0 0 16 16" className="h-full w-full text-zinc-300">
-              <path d="M12 4 L4 12 M16 8 L8 16 M16 12 L12 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <path
+                d="M12 4 L4 12 M16 8 L8 16 M16 12 L12 16"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
             </svg>
           </div>
         </div>
