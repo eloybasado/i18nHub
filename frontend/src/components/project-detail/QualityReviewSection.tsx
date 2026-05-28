@@ -199,14 +199,14 @@ export function QualityReviewSection({
       let appliedCount = 0;
       for (const [fileId, updates] of Object.entries(updatesByFileId)) {
         try {
-          const fileData = (await apiRequest(`/translation-files/${fileId}`, {
+          const fileData = (await apiRequest(`/projects/${projectId}/translation-files/${fileId}`, {
             auth: true,
           })) as {
             content: Record<string, unknown>;
           };
           const updatedContent = applyUpdatesToContent(fileData.content || {}, updates);
 
-          await apiRequest(`/translation-files/${fileId}`, {
+          await apiRequest(`/projects/${projectId}/translation-files/${fileId}/content`, {
             method: 'PATCH',
             auth: true,
             body: { content: updatedContent },
