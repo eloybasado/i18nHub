@@ -88,13 +88,13 @@ export function QualityReviewSection({
   }, [state.selectedSuggestions]);
 
   const filteredSuggestions = useMemo(() => {
-    if (state.confidenceFilter === 'ALL') {
-      return state.results;
-    }
-    return state.results.map((result) => ({
-      ...result,
-      suggestions: result.suggestions.filter((s) => s.confidence === state.confidenceFilter),
-    }));
+    const filtered = state.confidenceFilter === 'ALL'
+      ? state.results
+      : state.results.map((result) => ({
+          ...result,
+          suggestions: result.suggestions.filter((s) => s.confidence === state.confidenceFilter),
+        }));
+    return filtered.filter((result) => result.suggestions.length > 0);
   }, [state.results, state.confidenceFilter]);
 
   const canRunReview = state.selectedLanguageCode && state.fileId;
@@ -145,7 +145,11 @@ export function QualityReviewSection({
       }));
 
       const totalSuggestions = data.results.reduce((sum, r) => sum + r.suggestions.length, 0);
-      notify.success(`Se encontraron ${totalSuggestions} sugerencias de calidad`);
+      if (totalSuggestions === 0) {
+        notify.success('No se encontraron problemas de calidad en este archivo');
+      } else {
+        notify.success(`Se encontraron ${totalSuggestions} sugerencia(s) de calidad`);
+      }
     } catch (error) {
       notify.error('Error al revisar calidad');
       console.error('Quality review error:', error);
@@ -326,6 +330,14 @@ export function QualityReviewSection({
               </Select>
             </div>
           </div>
+
+          {filteredSuggestions.length === 0 && (
+            <p className="text-sm text-zinc-500">
+              {state.confidenceFilter === 'ALL'
+                ? 'No se encontraron problemas de calidad.'
+                : 'No hay sugerencias con ese nivel de confianza.'}
+            </p>
+          )}
 
           <div className="space-y-3">
             {filteredSuggestions.map((result) => (

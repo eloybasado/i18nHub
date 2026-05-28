@@ -96,6 +96,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}) 
       }
     }
 
+    if (response.status === 413) {
+      throw new Error('Los archivos son demasiado grandes para cargar');
+    }
+
     const message = data?.message ?? `Request failed (${response.status})`;
     throw new Error(Array.isArray(message) ? message.join(', ') : message);
   }

@@ -30,7 +30,9 @@ export class TranslationFilesController {
 
   @Get('file-groups')
   @ProjectRoles(ProjectRole.OWNER, ProjectRole.EDITOR, ProjectRole.VIEWER)
-  listFileGroups(@Param('projectId', new ParseUUIDPipe()) projectId: string) {
+  listFileGroups(
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
+  ) {
     return this.translationFilesService.listFileGroups(projectId);
   }
 

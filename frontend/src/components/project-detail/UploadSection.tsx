@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, FilePenLine, FileUp, FolderTree, Info, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, FilePenLine, FileUp, FolderTree, Info, Trash2, X } from 'lucide-react';
 import type { ChangeEvent, DragEvent } from 'react';
 import { useMemo, useState } from 'react';
 import type { FileGroup, I18nPattern, TranslationFileSummary } from '../../lib/types';
@@ -39,6 +39,7 @@ type UploadSectionProps = {
   onIngest: () => void | Promise<void>;
   onGoToLanguages: () => void;
   onEditFile: (fileId: string) => void | Promise<void>;
+  onRemoveIngestFile: (path: string) => void;
   onDeleteFile: (file: TranslationFileSummary) => void;
   onDeleteFileGroup: (fileGroupId: string) => void;
 };
@@ -104,6 +105,7 @@ export function UploadSection({
   onIngest,
   onGoToLanguages,
   onEditFile,
+  onRemoveIngestFile,
   onDeleteFile,
   onDeleteFileGroup,
 }: UploadSectionProps) {
@@ -269,19 +271,27 @@ export function UploadSection({
         <p className="text-sm font-medium text-zinc-800">Arrastra archivos JSON aqui</p>
         <p className="mt-1 text-xs text-zinc-600">
           {uploadEnabled
-            ? 'Tambien puedes seleccionar archivos o una carpeta desde Finder.'
+            ? 'Tambien puedes seleccionar archivos .json o una carpeta desde Finder.'
             : 'Activa la carga configurando idiomas en la sección correspondiente.'}
         </p>
-        <Input
-          className="mt-3 block bg-white"
-          type="file"
-          accept=".json,application/json"
-          multiple
-          disabled={!uploadEnabled}
-          onChange={onPickFiles}
-          // @ts-expect-error - this attribute is supported by Chromium browsers.
-          webkitdirectory=""
-        />
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Input
+            className="block bg-white"
+            type="file"
+            accept=".json,application/json"
+            multiple
+            disabled={!uploadEnabled}
+            onChange={onPickFiles}
+          />
+          <Input
+            className="block bg-white"
+            type="file"
+            disabled={!uploadEnabled}
+            onChange={onPickFiles}
+            // @ts-expect-error - webkitdirectory is Chromium-only
+            webkitdirectory=""
+          />
+        </div>
       </div>
 
       {ingestFiles.length > 0 ? (
@@ -329,8 +339,16 @@ export function UploadSection({
                     {!isCollapsed ? (
                       <ul className="max-h-52 divide-y divide-zinc-100 overflow-auto border-t border-zinc-200 bg-white">
                         {bucket.files.map((file) => (
-                          <li key={file.path} className="px-3 py-2 text-sm text-zinc-700">
-                            {file.path}
+                          <li key={file.path} className="flex items-center justify-between gap-2 px-3 py-2">
+                            <span className="truncate text-sm text-zinc-700">{file.path}</span>
+                            <button
+                              type="button"
+                              aria-label="Quitar archivo"
+                              onClick={() => onRemoveIngestFile(file.path)}
+                              className="shrink-0 rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                            >
+                              <X size={13} />
+                            </button>
                           </li>
                         ))}
                       </ul>

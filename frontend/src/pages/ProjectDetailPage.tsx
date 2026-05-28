@@ -1048,6 +1048,10 @@ export function ProjectDetailPage() {
     }
   };
 
+  const removeIngestFile = (path: string) => {
+    setIngestFiles((prev) => prev.filter((f) => f.path !== path));
+  };
+
   const onPickFiles = async (event: ChangeEvent<HTMLInputElement>) => {
     if (!hasConfiguredLanguages) {
       notify.info('Primero añade al menos un idioma en la sección Idiomas.');
@@ -2490,6 +2494,7 @@ export function ProjectDetailPage() {
                 onEditFile={(fileId) => {
                   void openEditorForFile(fileId);
                 }}
+                onRemoveIngestFile={removeIngestFile}
                 onDeleteFile={setFileToDelete}
                 onDeleteFileGroup={(id) => void deleteFileGroup(id)}
               />
