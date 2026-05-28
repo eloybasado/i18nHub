@@ -27,6 +27,7 @@ import {
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { Link } from 'react-router-dom';
 import { PublicHeader } from '../components/common/PublicHeader';
+import { session } from '../lib/session';
 import { FeatureCard, StepCard } from '../components/landing/LandingCards';
 import { Button } from '../components/ui/button';
 
@@ -114,6 +115,7 @@ const GETTING_STARTED_STEPS = [
 
 export function LandingPage() {
   const githubRepoUrl = 'https://github.com/eloybasado/i18nHub';
+  const isLoggedIn = !!(session.getAccessToken() || session.getRefreshToken());
   const translationFeatureRef = useRef<HTMLElement | null>(null);
   const replayTimeoutRef = useRef<number | null>(null);
   const [playTranslationAnim, setPlayTranslationAnim] = useState(false);
@@ -183,20 +185,26 @@ export function LandingPage() {
       <PublicHeader
         className="bg-white/90 shadow-[0_6px_18px_rgba(0,0,0,0.04)] backdrop-blur"
         rightSlot={
-          <>
-            <Link to="/login">
-              <Button
-                type="button"
-                variant="outline"
-                className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
-              >
-                Iniciar sesión
-              </Button>
+          isLoggedIn ? (
+            <Link to="/projects">
+              <Button type="button">Ir al dashboard</Button>
             </Link>
-            <Link to="/register">
-              <Button type="button">Crear cuenta</Button>
-            </Link>
-          </>
+          ) : (
+            <>
+              <Link to="/login">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+                >
+                  Iniciar sesión
+                </Button>
+              </Link>
+              <Link to="/register">
+                <Button type="button">Crear cuenta</Button>
+              </Link>
+            </>
+          )
         }
       />
 
@@ -238,15 +246,27 @@ export function LandingPage() {
                   <ArrowRight size={16} />
                 </Button>
               </Link>
-              <Link to="/register">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11 border-zinc-300 px-5 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
-                >
-                  Crear cuenta
-                </Button>
-              </Link>
+              {isLoggedIn ? (
+                <Link to="/projects">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 border-zinc-300 px-5 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+                  >
+                    Ir al dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <Link to="/register">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 border-zinc-300 px-5 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+                  >
+                    Crear cuenta
+                  </Button>
+                </Link>
+              )}
             </div>
 
             <div className="grid gap-2 text-base text-zinc-700 sm:grid-cols-3">
@@ -717,15 +737,17 @@ export function LandingPage() {
               </Button>
             </Link>
 
-            <Link to="/register">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 border-zinc-500 bg-transparent text-zinc-100 hover:bg-zinc-800"
-              >
-                Crear cuenta
-              </Button>
-            </Link>
+            {!isLoggedIn && (
+              <Link to="/register">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 border-zinc-500 bg-transparent text-zinc-100 hover:bg-zinc-800"
+                >
+                  Crear cuenta
+                </Button>
+              </Link>
+            )}
 
             <a
               href={githubRepoUrl}
@@ -778,12 +800,20 @@ export function LandingPage() {
               <Link to="/demo" className="hover:text-zinc-900 hover:underline">
                 Probar demo
               </Link>
-              <Link to="/register" className="hover:text-zinc-900 hover:underline">
-                Crear cuenta
-              </Link>
-              <Link to="/login" className="hover:text-zinc-900 hover:underline">
-                Iniciar sesión
-              </Link>
+              {isLoggedIn ? (
+                <Link to="/projects" className="hover:text-zinc-900 hover:underline">
+                  Ir al dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link to="/register" className="hover:text-zinc-900 hover:underline">
+                    Crear cuenta
+                  </Link>
+                  <Link to="/login" className="hover:text-zinc-900 hover:underline">
+                    Iniciar sesión
+                  </Link>
+                </>
+              )}
               <a href={githubRepoUrl} target="_blank" rel="noreferrer" className="hover:text-zinc-900 hover:underline">
                 Repositorio GitHub
               </a>
