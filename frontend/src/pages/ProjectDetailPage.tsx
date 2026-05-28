@@ -2070,7 +2070,9 @@ export function ProjectDetailPage() {
         const currentText =
           issue.type === 'INCORRECT_NESTING' && typeof issue.details?.foundValue === 'string'
             ? issue.details.foundValue
-            : (currentByKey.get(issue.key) ?? '');
+            : issue.type === 'INTERPOLATION_MISMATCH' && typeof issue.details?.targetValue === 'string'
+              ? issue.details.targetValue
+              : (currentByKey.get(issue.key) ?? '');
 
         return {
           key: issue.key,
@@ -2083,7 +2085,7 @@ export function ProjectDetailPage() {
       })
       .filter((item) => item.referenceText.trim() !== '');
 
-    const deduped = Array.from(new Map(issueScopedItems.map((item) => [item.key, item])).values());
+    const deduped = Array.from(new Map(issueScopedItems.map((item) => [`${item.fileGroupId ?? ''}:${item.key}`, item])).values());
 
     if (deduped.length === 0) {
       notify.error('No hay issues compatibles para sugerencias IA en este archivo');
