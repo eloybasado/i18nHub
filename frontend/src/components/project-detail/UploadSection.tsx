@@ -256,42 +256,73 @@ export function UploadSection({
         </div>
       ) : null}
 
-      <div
-        className={`mt-3 rounded-xl border-2 border-dashed p-5 transition-colors ${
-          !uploadEnabled
-            ? 'cursor-not-allowed border-zinc-200 bg-zinc-100/70'
-            : isDraggingFiles
-              ? 'border-zinc-700 bg-zinc-50'
-              : 'border-zinc-300 bg-zinc-50/40'
-        }`}
-        onDrop={dropzoneInteractive ? onDropFiles : undefined}
-        onDragOver={dropzoneInteractive ? onDragOverFiles : undefined}
-        onDragLeave={dropzoneInteractive ? onDragLeaveFiles : undefined}
-      >
-        <p className="text-sm font-medium text-zinc-800">Arrastra archivos JSON aqui</p>
-        <p className="mt-1 text-xs text-zinc-600">
-          {uploadEnabled
-            ? 'Tambien puedes seleccionar archivos .json o una carpeta desde Finder.'
-            : 'Activa la carga configurando idiomas en la sección correspondiente.'}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Input
-            className="block bg-white"
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {/* Drop zone */}
+        <label
+          className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-5 text-center transition-colors ${
+            !uploadEnabled
+              ? 'cursor-not-allowed border-zinc-200 bg-zinc-100/70 text-zinc-400'
+              : isDraggingFiles
+                ? 'border-zinc-700 bg-zinc-50 text-zinc-800'
+                : 'border-zinc-300 bg-zinc-50/40 text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50'
+          }`}
+          onDrop={dropzoneInteractive ? onDropFiles : undefined}
+          onDragOver={dropzoneInteractive ? onDragOverFiles : undefined}
+          onDragLeave={dropzoneInteractive ? onDragLeaveFiles : undefined}
+        >
+          <FileUp size={22} className="shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">Arrastrar archivos</p>
+            <p className="mt-0.5 text-xs">Suelta archivos .json aquí</p>
+          </div>
+        </label>
+
+        {/* Files picker */}
+        <label
+          className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white p-5 text-center shadow-sm transition-colors ${
+            !uploadEnabled
+              ? 'cursor-not-allowed opacity-50'
+              : 'hover:border-zinc-300 hover:bg-zinc-50'
+          }`}
+        >
+          <FileUp size={22} className="shrink-0 text-zinc-500" />
+          <div>
+            <p className="text-sm font-semibold text-zinc-800">Elegir archivos</p>
+            <p className="mt-0.5 text-xs text-zinc-500">Selecciona uno o varios .json</p>
+          </div>
+          <input
             type="file"
             accept=".json,application/json"
             multiple
             disabled={!uploadEnabled}
             onChange={onPickFiles}
+            className="sr-only"
           />
-          <Input
-            className="block bg-white"
+        </label>
+
+        {/* Folder picker */}
+        <label
+          className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white p-5 text-center shadow-sm transition-colors ${
+            !uploadEnabled
+              ? 'cursor-not-allowed opacity-50'
+              : 'hover:border-zinc-300 hover:bg-zinc-50'
+          }`}
+        >
+          <FolderTree size={22} className="shrink-0 text-zinc-500" />
+          <div>
+            <p className="text-sm font-semibold text-zinc-800">Elegir carpeta</p>
+            <p className="mt-0.5 text-xs text-zinc-500">Importa toda una carpeta de locales</p>
+          </div>
+          <input
             type="file"
             disabled={!uploadEnabled}
             onChange={onPickFiles}
+            className="sr-only"
             // @ts-expect-error - webkitdirectory is Chromium-only
             webkitdirectory=""
+            multiple
           />
-        </div>
+        </label>
       </div>
 
       {ingestFiles.length > 0 ? (
