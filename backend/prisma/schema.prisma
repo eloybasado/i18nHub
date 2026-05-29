@@ -191,8 +191,8 @@ model AnalysisIssue {
   details             Json?
 
   report            AnalysisReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  language          Language       @relation("IssueLanguage", fields: [languageId], references: [id])
-  referenceLanguage Language       @relation("IssueReferenceLanguage", fields: [referenceLanguageId], references: [id])
+  language          Language       @relation("IssueLanguage", fields: [languageId], references: [id], onDelete: Cascade)
+  referenceLanguage Language       @relation("IssueReferenceLanguage", fields: [referenceLanguageId], references: [id], onDelete: Cascade)
 
   @@map("analysis_issues")
 }
