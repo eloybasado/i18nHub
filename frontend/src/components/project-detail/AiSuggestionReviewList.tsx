@@ -71,18 +71,34 @@ export function AiSuggestionReviewList({
         {aiSuggestions.map((item) => (
           <li key={item.id} className="flex">
             <div
-              className={`flex w-full flex-col rounded-lg border bg-white shadow-sm transition-colors ${
+              className={`relative flex w-full flex-col rounded-lg border bg-white shadow-sm transition-colors duration-150 ${
                 item.selected ? 'border-zinc-400' : 'border-zinc-200'
               }`}
             >
               <button
                 type="button"
-                className="flex w-full flex-1 flex-col p-3 text-left hover:bg-zinc-50"
+                className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-400 transition-colors duration-150 hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-700"
+                onClick={(e) => { e.stopPropagation(); setDetailItem(item); }}
+                title="Ver detalle"
+              >
+                <Eye size={14} />
+              </button>
+
+              <button
+                type="button"
+                className="flex w-full flex-1 flex-col p-3 pr-11 text-left hover:bg-zinc-50"
                 onClick={() => onToggleAiSuggestion(item.id)}
               >
                 <div className="flex items-start gap-3">
-                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-zinc-800">
-                    {item.selected ? <CheckCircle2 size={24} /> : <Circle size={24} />}
+                  <span className="relative inline-flex h-6 w-6 shrink-0 items-center justify-center text-zinc-800">
+                    <CheckCircle2
+                      size={24}
+                      className={`absolute transition-opacity duration-150 ${item.selected ? 'opacity-100' : 'opacity-0'}`}
+                    />
+                    <Circle
+                      size={24}
+                      className={`absolute transition-opacity duration-150 ${item.selected ? 'opacity-0' : 'opacity-100'}`}
+                    />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-mono text-base text-zinc-800">{item.key}</p>
@@ -110,17 +126,6 @@ export function AiSuggestionReviewList({
                   </div>
                 </div>
               </button>
-
-              <div className="border-t border-zinc-100 px-3 py-1.5">
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-800"
-                  onClick={() => setDetailItem(item)}
-                >
-                  <Eye size={12} />
-                  Ver detalle
-                </button>
-              </div>
             </div>
           </li>
         ))}
