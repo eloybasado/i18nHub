@@ -71,7 +71,7 @@ export function AiSuggestionReviewList({
         {aiSuggestions.map((item) => (
           <li key={item.id} className="flex">
             <div
-              className={`relative flex w-full flex-col rounded-lg border bg-white shadow-sm transition-colors duration-150 ${
+              className={`relative flex w-full flex-col overflow-hidden rounded-lg border bg-white shadow-sm transition-colors duration-150 ${
                 item.selected ? 'border-zinc-400' : 'border-zinc-200'
               }`}
             >
