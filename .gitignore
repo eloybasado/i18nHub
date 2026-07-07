@@ -42,3 +42,4 @@ tmp/
 /*.md
 !/README.md
 /sample-files/
+trash/*
