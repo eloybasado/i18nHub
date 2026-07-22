@@ -3,6 +3,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminPage } from './pages/AdminPage';
 import { DemoPage } from './pages/DemoPage';
 import { LandingPage } from './pages/LandingPage';
+import { LegalNoticePage } from './pages/LegalNoticePage';
 import { LoginPage } from './pages/LoginPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -20,6 +21,7 @@ function App() {
       <Route path="/demo" element={<DemoPage />} />
       <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
       <Route path="/terms-of-use" element={<TermsOfUsePage />} />
+      <Route path="/legal-notice" element={<LegalNoticePage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/projects" element={<ProjectsPage />} />

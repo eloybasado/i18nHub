@@ -1,7 +1,6 @@
 import { Download, Upload } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { PublicHeader } from '../components/common/PublicHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -202,28 +201,14 @@ export function DemoPage() {
     <main className="min-h-screen bg-zinc-50 text-zinc-900">
       <PublicHeader
         rightSlot={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={loadSample}
-              className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
-            >
-              Cargar ejemplo
-            </Button>
-            <Link to="/login">
-              <Button
-                type="button"
-                variant="outline"
-                className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
-              >
-                Iniciar sesión
-              </Button>
-            </Link>
-            <Link to="/register">
-              <Button type="button">Crear cuenta</Button>
-            </Link>
-          </>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={loadSample}
+            className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+          >
+            Cargar ejemplo
+          </Button>
         }
       />
 

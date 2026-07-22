@@ -27,7 +27,6 @@ import {
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { Link } from 'react-router-dom';
 import { PublicHeader } from '../components/common/PublicHeader';
-import { session } from '../lib/session';
 import { FeatureCard, StepCard } from '../components/landing/LandingCards';
 import { Button } from '../components/ui/button';
 
@@ -42,17 +41,17 @@ const AI_FEATURE_CARDS: LandingCardItem[] = [
   {
     icon: Sparkles,
     title: 'Sugerencias contextuales',
-    description: 'Genera propuestas sobre missing keys e inconsistencias sin salir del flujo de edición.',
+    description: 'El prototipo generaba propuestas sobre missing keys e inconsistencias dentro del flujo de edición.',
   },
   {
     icon: Workflow,
     title: 'Diccionario + contexto IA',
-    description: 'Define términos y notas por idioma para mantener consistencia de marca en todo el producto.',
+    description: 'El prototipo contemplaba términos y notas por idioma para mantener consistencia de marca.',
   },
   {
     icon: ListChecks,
     title: 'Revisión aplicable',
-    description: 'Selecciona qué sugerencias aplicar y mantén control manual antes de guardar cambios.',
+    description: 'El flujo desarrollado permitía revisar sugerencias antes de aplicar cambios.',
   },
 ];
 
@@ -77,21 +76,21 @@ const I18N_EDUCATION_CARDS: LandingCardItem[] = [
 const ROADMAP_POST_TFM_CARDS: LandingCardItem[] = [
   {
     icon: Milestone,
-    eyebrow: 'Post-TFM · fase 1',
+    eyebrow: 'Roadmap original · fase 1',
     title: 'Base de producto',
-    description: 'CI/CD, hardening del backend y observabilidad para un entorno más robusto y mantenible.',
+    description: 'CI/CD, hardening del backend y observabilidad que se plantearon para una evolución posterior.',
   },
   {
     icon: CalendarClock,
-    eyebrow: 'Post-TFM · fase 2',
+    eyebrow: 'Roadmap original · fase 2',
     title: 'Escalado funcional',
-    description: 'Mejor experiencia colaborativa, paneles de calidad por idioma e historial más avanzado.',
+    description: 'Mejor experiencia colaborativa, paneles de calidad por idioma e historial más avanzado que no llegaron a ofrecerse.',
   },
   {
     icon: Target,
-    eyebrow: 'Post-TFM · fase 3',
+    eyebrow: 'Roadmap original · fase 3',
     title: 'Modelo de producto',
-    description: 'Plan PRO y roadmap público para evolución abierta del proyecto.',
+    description: 'Un plan PRO y roadmap público que quedaron como propuesta de producto.',
   },
 ];
 
@@ -103,19 +102,18 @@ const GETTING_STARTED_STEPS = [
   },
   {
     step: 'Paso 2',
-    title: 'Crea proyecto',
-    description: 'Carga idiomas, ejecuta análisis y revisa issues detectados.',
+    title: 'Explora la propuesta',
+    description: 'La landing conserva el diseño y las funciones desarrolladas durante el TFM.',
   },
   {
     step: 'Paso 3',
-    title: 'Escala con IA',
-    description: 'Aplica sugerencias y exporta JSON/ZIP con confianza.',
+    title: 'Consulta el código',
+    description: 'El repositorio explica la implementación técnica del proyecto.',
   },
 ];
 
 export function LandingPage() {
   const githubRepoUrl = 'https://github.com/eloybasado/i18nHub';
-  const isLoggedIn = !!(session.getAccessToken() || session.getRefreshToken());
   const translationFeatureRef = useRef<HTMLElement | null>(null);
   const replayTimeoutRef = useRef<number | null>(null);
   const [playTranslationAnim, setPlayTranslationAnim] = useState(false);
@@ -185,28 +183,15 @@ export function LandingPage() {
       <PublicHeader
         className="bg-white/90 shadow-[0_6px_18px_rgba(0,0,0,0.04)] backdrop-blur"
         rightSlot={
-          isLoggedIn ? (
-            <Link to="/projects">
-              <Button type="button">Ir al dashboard</Button>
-            </Link>
-          ) : (
-            <>
-              <Link to="/login">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
-                >
-                  Iniciar sesión
-                </Button>
-              </Link>
-              <Link to="/register">
-                <Button type="button">Crear cuenta</Button>
-              </Link>
-            </>
-          )
+          <Link to="/demo">
+            <Button type="button">Abrir demo local</Button>
+          </Link>
         }
       />
+
+      <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-950">
+        <strong>Proyecto archivado:</strong> i18nHub fue un TFM. La demo local sigue disponible, pero el SaaS no acepta cuentas ni ofrece acceso.
+      </div>
 
       <section className="relative overflow-hidden border-b border-zinc-200/80 bg-[radial-gradient(circle_at_80%_20%,rgba(24,24,27,0.07),transparent_45%),linear-gradient(180deg,#fff_0%,#fafafa_100%)] md:min-h-[540px]">
         <div className="pointer-events-none absolute inset-y-0 -right-[10vw] hidden w-[84vw] md:block">
@@ -235,8 +220,8 @@ export function LandingPage() {
               Limpia y valida tus traducciones JSON en minutos
             </h1>
             <p className="max-w-2xl text-lg leading-relaxed text-zinc-600 md:text-xl">
-              Empieza con la demo para editar archivos en local y, cuando quieras trabajar en serio, da el salto a una
-              cuenta para guardar proyectos, analizar idiomas y colaborar.
+              Esta landing conserva el trabajo realizado para un TFM. Puedes explorar la demo local, que procesa los
+              archivos en tu navegador, y consultar la implementación del proyecto en GitHub.
             </p>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -246,41 +231,25 @@ export function LandingPage() {
                   <ArrowRight size={16} />
                 </Button>
               </Link>
-              {isLoggedIn ? (
-                <Link to="/projects">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-11 border-zinc-300 px-5 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
-                  >
-                    Ir al dashboard
-                  </Button>
-                </Link>
-              ) : (
-                <Link to="/register">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-11 border-zinc-300 px-5 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
-                  >
-                    Crear cuenta
-                  </Button>
-                </Link>
-              )}
+              <a href={githubRepoUrl} target="_blank" rel="noreferrer">
+                <Button type="button" variant="outline" className="h-11 border-zinc-300 px-5 text-sm font-semibold text-zinc-700 hover:bg-zinc-100">
+                  Ver repositorio
+                </Button>
+              </a>
             </div>
 
             <div className="grid gap-2 text-base text-zinc-700 sm:grid-cols-3">
               <div className="inline-flex items-center gap-3 rounded-md border border-zinc-200 bg-white/95 px-4 py-3">
                 <ListChecks size={22} className="text-zinc-800 shrink-0" />
-                Análisis automático de keys
+                Prototipo: análisis de keys
               </div>
               <div className="inline-flex items-center gap-3 rounded-md border border-zinc-200 bg-white/95 px-4 py-3">
                 <CalendarClock size={22} className="text-zinc-800 shrink-0" />
-                Historial de versiones (PRO)
+                Prototipo: historial de versiones
               </div>
               <div className="inline-flex items-center gap-3 rounded-md border border-zinc-200 bg-white/95 px-4 py-3">
                 <Users size={22} className="text-zinc-800 shrink-0" />
-                Gestión de equipos por rol
+                Prototipo: equipos por rol
               </div>
             </div>
           </div>
@@ -290,11 +259,10 @@ export function LandingPage() {
       <section className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
         <div className="mb-8 max-w-3xl">
           <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">
-            Features que si ahorran tiempo
+            Funciones desarrolladas para el prototipo
           </h2>
           <p className="mt-3 text-lg text-zinc-600 md:text-xl">
-            No es solo un editor bonito. i18nHub te da un flujo claro para cargar, revisar y mejorar traducciones sin
-            perder control.
+            Estas pantallas muestran el flujo que se diseñó y desarrolló para el TFM. No describen un servicio disponible actualmente.
           </p>
         </div>
 
@@ -321,17 +289,16 @@ export function LandingPage() {
                 Control de calidad en traducciones
               </h3>
               <p className="mt-3 text-lg text-zinc-600">
-                Análisis automático para detectar inconsistencias entre idiomas, keys faltantes y problemas de
-                interpolación.
+                El prototipo analizaba inconsistencias entre idiomas, keys faltantes y problemas de interpolación.
               </p>
               <div className="mt-4 flex flex-wrap gap-3 text-base text-zinc-700">
                 <span className="inline-flex items-center gap-1.5">
                   <CheckCircle2 size={15} />
-                  Detecta keys faltantes
+                  Detección de keys faltantes
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <CheckCircle2 size={15} />
-                  Interpolaciones consistentes
+                  Revisión de interpolaciones
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <CheckCircle2 size={15} />
@@ -345,13 +312,12 @@ export function LandingPage() {
             <div>
               <h3 className="mt-2 text-3xl font-black tracking-tight">Carga de archivos y flujo de trabajo continuo</h3>
               <p className="mt-3 text-lg text-zinc-300">
-                Sube archivos, edita en visual o RAW y descarga resultados sin romper la estructura de tu proyecto
-                frontend.
+                El prototipo permitía subir archivos, editar en visual o RAW y descargar resultados sin romper la estructura del proyecto frontend.
               </p>
               <ul className="mt-5 space-y-3 text-lg leading-relaxed text-zinc-100">
                 <li className="flex items-start gap-3">
                   <Users size={18} className="mt-0.5 shrink-0" />
-                  <span>Gestión de equipos y permisos por rol</span>
+                  <span>Diseño de equipos y permisos por rol</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <FileCode size={18} className="mt-0.5 shrink-0" />
@@ -359,13 +325,13 @@ export function LandingPage() {
                 </li>
                 <li className="flex items-start gap-3">
                   <BrainCircuit size={18} className="mt-0.5 shrink-0" />
-                  <span>Sugerencias IA e historial en PRO</span>
+                  <span>Propuesta de sugerencias IA e historial</span>
                 </li>
               </ul>
               <div className="mt-5">
-                <Link to="/register">
+                <Link to="/demo">
                   <Button type="button" className="h-10 bg-white text-zinc-900 hover:bg-zinc-200">
-                    Crear cuenta gratis
+                    Abrir demo local
                   </Button>
                 </Link>
               </div>
@@ -389,8 +355,7 @@ export function LandingPage() {
             Editor de árbol para estructuras complejas
           </h2>
           <p className="mt-3 text-lg text-zinc-600 md:text-xl">
-            Más allá de visual y RAW. Edita tus JSONs en forma de árbol jerárquico para ver exactamente dónde va cada
-            traducción sin perder contexto de la estructura.
+              El prototipo incorporaba una vista jerárquica para mostrar dónde iba cada traducción sin perder el contexto de la estructura.
           </p>
         </div>
 
@@ -427,11 +392,9 @@ export function LandingPage() {
         <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
           <div className="mb-8 max-w-2xl">
             <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-zinc-400">Delivery</p>
-            <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">
-              Tus traducciones, siempre al día en producción
-            </h2>
+            <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">Diseño de delivery para traducciones</h2>
             <p className="mt-3 text-lg text-zinc-600 md:text-xl">
-              Corriges un texto, guardas y tu app lo muestra. Sin tocar código, sin abrir un PR, sin esperar un deploy.
+              Esta sección documenta una capacidad diseñada para el prototipo. No existe una API ni servicio de delivery activo.
             </p>
           </div>
 
@@ -440,10 +403,9 @@ export function LandingPage() {
               <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-100">
                 <RefreshCw size={20} className="text-zinc-700" />
               </div>
-              <h3 className="text-lg font-bold text-zinc-900">Actualizaciones instantáneas</h3>
+              <h3 className="text-lg font-bold text-zinc-900">Actualizaciones previstas</h3>
               <p className="mt-2 text-sm text-zinc-600">
-                Cuando guardas un cambio en i18nHub, cualquier app que pida las traducciones las recibe ya actualizadas.
-                No hay caché que purgar ni pipeline que lanzar.
+                El diseño contemplaba que las apps recibieran las traducciones actualizadas tras guardar un cambio.
               </p>
             </article>
 
@@ -451,10 +413,9 @@ export function LandingPage() {
               <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-100">
                 <Globe size={20} className="text-zinc-700" />
               </div>
-              <h3 className="text-lg font-bold text-zinc-900">Un idioma, una dirección</h3>
+              <h3 className="text-lg font-bold text-zinc-900">Una dirección por idioma</h3>
               <p className="mt-2 text-sm text-zinc-600">
-                Cada idioma de tu proyecto tiene su propia URL. Tu app la consulta cuando la necesita y recibe las
-                traducciones listas para usar.
+                El diseño asignaba una URL a cada idioma para que una aplicación pudiera consultar sus traducciones.
               </p>
             </article>
 
@@ -462,10 +423,9 @@ export function LandingPage() {
               <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-100">
                 <Key size={20} className="text-zinc-700" />
               </div>
-              <h3 className="text-lg font-bold text-zinc-900">Acceso seguro por token</h3>
+              <h3 className="text-lg font-bold text-zinc-900">Acceso por token planteado</h3>
               <p className="mt-2 text-sm text-zinc-600">
-                Cada proyecto tiene un token de solo lectura. Solo quien lo tenga puede recuperar las traducciones,
-                sin exponer el resto de tu cuenta.
+                El prototipo planteaba tokens de solo lectura. No hay tokens ni endpoints activos.
               </p>
             </article>
           </div>
@@ -473,15 +433,14 @@ export function LandingPage() {
           <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-6 md:p-8">
             <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_220px] md:items-center">
               <div>
-                <h3 className="text-xl font-bold text-zinc-900">¿Cómo funciona en la práctica?</h3>
+              <h3 className="text-xl font-bold text-zinc-900">Cómo se planteó</h3>
                 <p className="mt-2 text-zinc-600">
-                  Alguien del equipo corrige un texto en i18nHub y guarda. La próxima vez que un usuario abra la app
-                  ya ve el cambio, sin involucrar a desarrollo ni esperar al siguiente deploy.
+                El flujo planteado permitía que un equipo corrigiera un texto y lo publicara sin involucrar a desarrollo. Esta infraestructura no está operativa.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2 text-sm">
                   <span className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-zinc-700">
                     <Languages size={13} className="text-zinc-500" />
-                    Publica cuando quieras
+                    Diseño de publicación
                   </span>
                   <span className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-zinc-700">
                     <CheckCircle2 size={13} className="text-zinc-500" />
@@ -489,7 +448,7 @@ export function LandingPage() {
                   </span>
                   <span className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-zinc-700">
                     <Zap size={13} className="text-zinc-500" />
-                    Hot-fixes en instantes
+                    Correcciones rápidas planteadas
                   </span>
                 </div>
               </div>
@@ -505,11 +464,10 @@ export function LandingPage() {
         <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
           <div className="mb-8 max-w-3xl">
             <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">
-              Historial de versiones <span className="text-sm text-zinc-500">PRO</span>
+              Historial de versiones diseñado
             </h2>
             <p className="mt-3 text-lg text-zinc-600 md:text-xl">
-              Cada cambio queda guardado automáticamente. Previsualiza versiones anteriores o restaura si algo salió
-              mal, todo sin perder tiempo buscando backups.
+              Esta sección muestra el historial de versiones desarrollado para el prototipo. No se conservan proyectos ni versiones en un servicio activo.
             </p>
           </div>
 
@@ -577,11 +535,10 @@ export function LandingPage() {
         <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
           <div className="mb-8 max-w-3xl">
             <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">
-              IA útil para localización real <span className="text-sm text-zinc-500">PRO</span>
+              IA explorada para localización
             </h2>
             <p className="mt-3 text-lg text-zinc-600 md:text-xl">
-              i18nHub integra IA de forma práctica: no para reemplazar al equipo, sino para acelerar revisiones y
-              propuestas con contexto de proyecto.
+              El TFM exploró IA para acelerar revisiones y propuestas con contexto de proyecto. No hay integración de IA activa en esta web.
             </p>
           </div>
 
@@ -718,10 +675,9 @@ export function LandingPage() {
 
       <section className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
         <div className="rounded-2xl bg-zinc-900 p-6 text-zinc-100 md:p-8">
-          <h2 className="text-3xl font-black tracking-tight md:text-4xl">How to get started</h2>
+              <h2 className="text-3xl font-black tracking-tight md:text-4xl">Explora el proyecto</h2>
           <p className="mt-3 max-w-3xl text-lg text-zinc-300">
-            En menos de 10 minutos puedes probar el flujo completo, entender el valor de i18nHub y decidir si encaja
-            para tu equipo.
+              La demo y el repositorio se mantienen para mostrar el enfoque y la implementación del TFM. El SaaS ya no está operativo.
           </p>
 
           <ol className="mt-6 grid gap-3 md:grid-cols-3">
@@ -736,18 +692,6 @@ export function LandingPage() {
                 Abrir demo
               </Button>
             </Link>
-
-            {!isLoggedIn && (
-              <Link to="/register">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-10 border-zinc-500 bg-transparent text-zinc-100 hover:bg-zinc-800"
-                >
-                  Crear cuenta
-                </Button>
-              </Link>
-            )}
 
             <a
               href={githubRepoUrl}
@@ -765,9 +709,9 @@ export function LandingPage() {
       <section className="border-y border-zinc-200 bg-zinc-50/70">
         <div className="mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-14">
           <div className="mb-8 max-w-3xl">
-            <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">Roadmap post-TFM</h2>
+            <h2 className="text-3xl font-black tracking-tight text-zinc-950 md:text-4xl">Roadmap original del TFM</h2>
             <p className="mt-3 text-lg text-zinc-600 md:text-xl">
-              Líneas de evolución planteadas para la fase posterior a la defensa del TFM.
+              Líneas de evolución planteadas durante el proyecto, que no forman parte de un servicio activo.
             </p>
           </div>
 
@@ -790,7 +734,7 @@ export function LandingPage() {
           <div>
             <p className="text-base font-bold tracking-tight text-zinc-900">i18nHub</p>
             <p className="mt-2 max-w-sm">
-              Gestión de traducciones JSON para equipos frontend con enfoque simple y productivo.
+              Proyecto académico sobre gestión de traducciones JSON para equipos frontend.
             </p>
           </div>
 
@@ -800,20 +744,9 @@ export function LandingPage() {
               <Link to="/demo" className="hover:text-zinc-900 hover:underline">
                 Probar demo
               </Link>
-              {isLoggedIn ? (
-                <Link to="/projects" className="hover:text-zinc-900 hover:underline">
-                  Ir al dashboard
-                </Link>
-              ) : (
-                <>
-                  <Link to="/register" className="hover:text-zinc-900 hover:underline">
-                    Crear cuenta
-                  </Link>
-                  <Link to="/login" className="hover:text-zinc-900 hover:underline">
-                    Iniciar sesión
-                  </Link>
-                </>
-              )}
+              <Link to="/login" className="hover:text-zinc-900 hover:underline">
+                Estado del servicio
+              </Link>
               <a href={githubRepoUrl} target="_blank" rel="noreferrer" className="hover:text-zinc-900 hover:underline">
                 Repositorio GitHub
               </a>
@@ -828,6 +761,9 @@ export function LandingPage() {
               </Link>
               <Link to="/terms-of-use" className="hover:text-zinc-900 hover:underline">
                 Términos de uso
+              </Link>
+              <Link to="/legal-notice" className="hover:text-zinc-900 hover:underline">
+                Aviso legal
               </Link>
               <p className="pt-1 text-zinc-500">© 2026 i18nHub. All rights reserved.</p>
             </div>
